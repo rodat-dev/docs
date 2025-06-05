@@ -6,13 +6,9 @@
     "primary": "#FD366E",
     "light": "#FF5A8A",
     "dark": "#E5195A",
-    "background": {
-      "dark": "#18181B",
-      "light": "#FAFAFA"
-    },
-    "foreground": {
-      "dark": "#FAFAFA",
-      "light": "#18181B"
+    "anchors": {
+      "from": "#FD366E",
+      "to": "#FF5A8A"
     }
   },
   "favicon": "/favicon.svg",
