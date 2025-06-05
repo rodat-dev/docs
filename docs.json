@@ -35,6 +35,17 @@
         ]
       },
       {
+        "tab": "Agentic Documentation",
+        "groups": [
+          {
+            "group": "Health And Fitness",
+            "pages": [
+              "health-and-fitness/whoop"
+            ]
+          }
+        ]
+      },
+      {
         "tab": "API Reference",
         "groups": [
           {
