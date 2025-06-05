@@ -1,0 +1,98 @@
+---
+title: "WHOOP Core Concepts (Strain, Recovery, Sleep)"
+description: "Comprehensive overview of the core physiological concepts that underpin the WHOOP Developer Platform: Strain, Recovery, and Sleep metrics."
+tags: ["whoop", "strain", "recovery", "sleep", "physiological", "concepts", "metrics", "heart-rate", "hrv", "performance", "health"]
+---
+
+# WHOOP Core Concepts (Strain, Recovery, Sleep)
+
+**Purpose:** This document provides a Coding AI Agent with an overview of the core physiological concepts (Strain, Recovery, and Sleep) that underpin the WHOOP Developer Platform. Understanding these concepts is fundamental for correctly interpreting and utilizing the data retrieved from the WHOOP API.
+
+## 1. Core Concepts & Prerequisites
+
+WHOOP is a 24/7 wearable that continuously monitors physiological signals to provide insights into how the body performs and recovers. The platform's insights are built around three pillars: Strain, Recovery, and Sleep.
+
+*   **No direct prerequisites for API calls:** This guide is conceptual, providing context for data models found in `retrieving_cycle_data_guide.md`, `retrieving_recovery_data_guide.md`, `retrieving_sleep_data_guide.md`, and `retrieving_workout_data_guide.md`.
+
+## 2. Implementation Steps (Conceptual Understanding)
+
+The AI should internalize these concepts to build applications that accurately represent and leverage WHOOP data.
+
+### 2.1. Strain
+
+*   **Definition:** A measurement of the amount of stress on your body, scored on a 0 to 21 scale.
+*   **Non-Linear Scale:** Moving from 16 to 17 Strain requires more stress than from 4 to 5.
+*   **Personalized:** Strain is specific to an individual's baseline and can vary daily for the same activity.
+*   **Categories:**
+    *   **Light Strain (0-9):** Room for active recovery.
+    *   **Moderate Strain (10-13):** Helps maintain fitness.
+    *   **High Strain (14-17):** Builds fitness gains.
+    *   **All Out (18-21):** Significant stress, may be difficult to recover from.
+*   **Workout Activity:** WHOOP tracks workouts and their accumulated Strain. Workouts can be manual, imported, or auto-detected.
+    *   **Note:** Recovery activities (e.g., Ice Bath, Meditation) are *not* currently accessible via the Workouts API endpoint.
+
+### 2.2. Recovery
+
+*   **Definition:** A daily measure (0-100%) of how prepared your body is to perform. Higher score means more primed.
+*   **Calculation:** Based on measurements from the previous day and sleep, including resting heart rate (RHR), heart rate variability (HRV), respiratory rate, sleep duration/quality, skin temperature, and blood oxygen (for 4.0 members).
+*   **Stability:** Recovery score typically does not change throughout the day unless sleep is edited.
+*   **Categories (Colors):**
+    *   **GREEN (67-100%):** Well recovered, primed to perform.
+    *   **YELLOW (34-66%):** Maintaining, ready for moderate strain.
+    *   **RED (0-33%):** Body needs rest, working hard to recover (e.g., overtraining, sickness, stress, lack of sleep).
+
+### 2.3. Sleep
+
+*   **Definition:** Tracks sleep duration and stages (Light, REM, Slow Wave Sleep/Deep).
+*   **Sleep Need:** Calculates how much sleep is needed based on Sleep Debt and previous day's activity.
+*   **Naps:** WHOOP tracks naps, which reduce the amount of sleep needed for the next Cycle. The `nap` field in sleep data indicates if an activity was a nap.
+
+## 3. Code Example(s)
+
+This section does not contain direct code examples for API interaction, as it focuses on conceptual understanding. The data models and API calls for these concepts are covered in their respective retrieval guides.
+
+**Example: Conceptual Data Interpretation (for AI)**
+```javascript
+// Assuming 'workoutData' is a retrieved WHOOP workout object
+if (workoutData.score_state === 'SCORED' && workoutData.score) {
+    const strain = workoutData.score.strain;
+    let strainCategory;
+    if (strain >= 0 && strain <= 9) strainCategory = "Light Strain";
+    else if (strain >= 10 && strain <= 13) strainCategory = "Moderate Strain";
+    else if (strain >= 14 && strain <= 17) strainCategory = "High Strain";
+    else if (strain >= 18 && strain <= 21) strainCategory = "All Out";
+    console.log(`Workout Strain: ${strain} (${strainCategory})`);
+}
+
+// Assuming 'recoveryData' is a retrieved WHOOP recovery object
+if (recoveryData.score_state === 'SCORED' && recoveryData.score) {
+    const recoveryScore = recoveryData.score.recovery_score;
+    let recoveryColor;
+    if (recoveryScore >= 67) recoveryColor = "GREEN";
+    else if (recoveryScore >= 34) recoveryColor = "YELLOW";
+    else recoveryColor = "RED";
+    console.log(`Daily Recovery: ${recoveryScore}% (${recoveryColor})`);
+    if (recoveryData.score.user_calibrating) {
+        console.log("Note: User is still calibrating, score may be less accurate.");
+    }
+}
+
+// Assuming 'sleepData' is a retrieved WHOOP sleep object
+if (sleepData.score_state === 'SCORED' && sleepData.score) {
+    console.log(`Sleep Performance: ${sleepData.score.sleep_performance_percentage}%`);
+    console.log(`Was a nap: ${sleepData.nap}`);
+    console.log(`Total REM Sleep: ${sleepData.score.stage_summary.total_rem_sleep_time_milli / (1000 * 60 * 60)} hours`);
+}
+```
+*Accompanying Explanation:* This conceptual JavaScript snippet demonstrates how an AI might interpret and categorize the `strain` and `recovery_score` values based on the WHOOP 101 definitions. It also shows how to check the `nap` field for sleep activities. This helps the AI understand the meaning behind the numerical data.
+
+## 4. Key API Endpoints / Functions Used
+
+*   This guide focuses on conceptual understanding rather than specific API endpoints. Refer to other guides for API interaction.
+
+## 5. Important Notes & Best Practices for AI Implementation
+
+*   **Contextual Understanding:** Emphasize that understanding these core concepts is vital for building meaningful integrations, not just for fetching raw data.
+*   **Data Interpretation:** Encourage the AI to use the provided categories (Light/Moderate/High/All Out for Strain, Green/Yellow/Red for Recovery) when presenting data to users, as this aligns with WHOOP's own user experience.
+*   **Calibration Period:** Remind the AI to consider the `user_calibrating` flag in recovery data, as scores during this period may not be fully representative.
+*   **Physiological Cycle:** Reinforce the concept of a "Physiological Cycle" (covered in `retrieving_cycle_data_guide.md`) as the primary time unit for WHOOP data, rather than strict calendar days.

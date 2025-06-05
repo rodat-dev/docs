@@ -1,0 +1,274 @@
+---
+title: "Retrieving User Workout Data with WHOOP"
+description: "Guide for fetching user workout activities from the WHOOP API including strain, heart rate zones, and sport-specific details"
+tags: ["whoop", "api", "workout", "strain", "heart-rate", "sports", "fitness-tracking", "health-data", "oauth", "javascript"]
+---
+
+# Guide: Retrieving User Workout Data with WHOOP
+
+**Purpose:** This document guides a Coding AI Agent on how to fetch a user's workout activities from the WHOOP API. It covers the Workout data model, including strain, heart rate zones, and sport-specific details, along with a comprehensive list of WHOOP Sport IDs.
+
+## 1. Core Concepts & Prerequisites
+
+WHOOP tracks various workout activities, providing details such as activity type, Strain score, and physiological measurements like duration in Heart Rate Zones.
+
+*   **Prerequisite:** Ensure `oauth2_authentication_guide.md` is completed. You must have a valid `access token` for the user.
+*   **Required Scope:** `read:workout` is necessary to access workout data.
+*   **Workout Data Model:** Understanding the structure of the `Workout` object is crucial for processing the retrieved data.
+*   **Sport IDs:** WHOOP uses numerical IDs to categorize different sports/activities.
+
+## 2. Implementation Steps
+
+1.  **Obtain Access Token:** Ensure you have a valid `access token` for the WHOOP user.
+2.  **Construct API Request:** Make a GET request to the Workout Collection API endpoint: `/developer/v1/activity/workout`.
+    *   You can use query parameters like `start` and `end` to filter by a specific date range.
+    *   Include the `access token` in the `Authorization: Bearer` header.
+3.  **Process Response:** Parse the JSON response. The `records` field will contain an array of `Workout` objects.
+    *   Check the `score_state` field (`SCORED`, `PENDING_SCORE`, `UNSCORABLE`) before accessing the `score` object.
+    *   Use the `sport_id` to identify the type of activity, referencing the provided "WHOOP Sports" table.
+
+## 3. Code Example(s)
+
+**Example: Fetching Workout Data for a Date Range (JavaScript Fetch API)**
+```javascript
+// Ensure process.env.WHOOP_API_HOSTNAME is set (e.g., 'https://api.prod.whoop.com')
+
+async function getWorkoutData(accessToken, startDate, endDate) {
+    const query = new URLSearchParams({
+        start: startDate.toISOString(), // e.g., '2022-04-01T00:00:00.000Z'
+        end: endDate.toISOString(),     // e.g., '2022-04-30T23:59:59.999Z'
+        // Add 'limit' and 'nextToken' for pagination if needed (refer to api_pagination_guide.md)
+    });
+
+    const uri = `${process.env.WHOOP_API_HOSTNAME}/developer/v1/activity/workout?${query.toString()}`;
+
+    try {
+        const workoutResponse = await fetch(uri, {
+            headers: {
+                Authorization: `Bearer ${accessToken}`,
+            },
+        });
+
+        if (workoutResponse.status === 200) {
+            const data = await workoutResponse.json();
+            console.log(`Successfully retrieved ${data.records.length} workout records.`);
+            return data.records; // Returns an array of workout objects
+        } else if (workoutResponse.status === 401) {
+            console.error("Unauthorized: Access token might be expired or invalid. Trigger refresh.");
+            throw new Error("Unauthorized");
+        } else {
+            const errorData = await workoutResponse.json();
+            throw new Error(`Received ${workoutResponse.status} status from Whoop: ${JSON.stringify(errorData)}`);
+        }
+    } catch (error) {
+        console.error("Error fetching workout data:", error);
+        throw error;
+    }
+}
+
+// Example usage: Fetch workout data for April 2022
+// const USER_ACCESS_TOKEN = "YOUR_USER_ACCESS_TOKEN";
+// const start = new Date('2022-04-01T00:00:00.000Z');
+// const end = new Date('2022-05-01T00:00:00.000Z'); // Up to, but not including, May 1st
+
+// getWorkoutData(USER_ACCESS_TOKEN, start, end)
+//     .then(workoutRecords => {
+//         workoutRecords.forEach(workout => {
+//             console.log(`Workout ID: ${workout.id}, Sport ID: ${workout.sport_id}, Start: ${workout.start}`);
+//             if (workout.score_state === 'SCORED' && workout.score) {
+//                 console.log(`  Strain: ${workout.score.strain}, Avg HR: ${workout.score.average_heart_rate}`);
+//                 console.log(`  Zone Durations (milli):`, workout.score.zone_duration);
+//             }
+//         });
+//     })
+//     .catch(err => {
+//         console.error("Failed to get workout data:", err);
+//     });
+```
+*Accompanying Explanation:* This JavaScript function `getWorkoutData` fetches workout records within a specified date range. It constructs the API URL with `start` and `end` query parameters (formatted as ISO 8601 strings) and includes the access token. It then iterates through the returned `records` array, logging key workout details and conditionally accessing `score` data if `score_state` is `SCORED`.
+
+## 3.1. Workout Data Model
+
+```json
+{
+  "id": 1043,
+  "user_id": 9012,
+  "created_at": "2022-04-24T11:25:44.774Z",
+  "updated_at": "2022-04-24T14:25:44.774Z",
+  "start": "2022-04-24T02:25:44.774Z",
+  "end": "2022-04-24T10:25:44.774Z",
+  "timezone_offset": "-05:00",
+  "sport_id": 1,
+  "score_state": "SCORED",
+  "score": {
+    "strain": 8.2463,
+    "average_heart_rate": 123,
+    "max_heart_rate": 146,
+    "kilojoule": 1569.34033203125,
+    "percent_recorded": 100,
+    "distance_meter": 1772.77035916,
+    "altitude_gain_meter": 46.64384460449,
+    "altitude_change_meter": -0.781372010707855,
+    "zone_duration": {
+      "zone_zero_milli": 13458,
+      "zone_one_milli": 389370,
+      "zone_two_milli": 388367,
+      "zone_three_milli": 71137,
+      "zone_four_milli": 0,
+      "zone_five_milli": 0
+    }
+  }
+}
+```
+*Accompanying Explanation:*
+*   `id`, `user_id`: Identifiers for the workout activity and user.
+*   `start`, `end`: Time bounds of the workout.
+*   `timezone_offset`: User's timezone offset.
+*   `sport_id`: Numerical ID representing the type of sport/activity.
+*   `score_state`: Indicates if the workout was `SCORED`, `PENDING_SCORE`, or `UNSCORABLE`. The `score` object is only present if `SCORED`.
+*   `score`: Contains detailed workout metrics:
+    *   `strain`: The WHOOP Strain score for the workout.
+    *   `average_heart_rate`, `max_heart_rate`: Heart rate metrics during the workout.
+    *   `kilojoule`, `distance_meter`, `altitude_gain_meter`, `altitude_change_meter`: Other activity-specific measurements.
+    *   `zone_duration`: Time spent in different heart rate zones (in milliseconds).
+
+## 3.2. WHOOP Sports IDs
+
+| Sport ID | Sport |
+| --- | --- |
+| -1 | Activity |
+| 0 | Running |
+| 1 | Cycling |
+| 16 | Baseball |
+| 17 | Basketball |
+| 18 | Rowing |
+| 19 | Fencing |
+| 20 | Field Hockey |
+| 21 | Football |
+| 22 | Golf |
+| 24 | Ice Hockey |
+| 25 | Lacrosse |
+| 27 | Rugby |
+| 28 | Sailing |
+| 29 | Skiing |
+| 30 | Soccer |
+| 31 | Softball |
+| 32 | Squash |
+| 33 | Swimming |
+| 34 | Tennis |
+| 35 | Track & Field |
+| 36 | Volleyball |
+| 37 | Water Polo |
+| 38 | Wrestling |
+| 39 | Boxing |
+| 42 | Dance |
+| 43 | Pilates |
+| 44 | Yoga |
+| 45 | Weightlifting |
+| 47 | Cross Country Skiing |
+| 48 | Functional Fitness |
+| 49 | Duathlon |
+| 51 | Gymnastics |
+| 52 | Hiking/Rucking |
+| 53 | Horseback Riding |
+| 55 | Kayaking |
+| 56 | Martial Arts |
+| 57 | Mountain Biking |
+| 59 | Powerlifting |
+| 60 | Rock Climbing |
+| 61 | Paddleboarding |
+| 62 | Triathlon |
+| 63 | Walking |
+| 64 | Surfing |
+| 65 | Elliptical |
+| 66 | Stairmaster |
+| 70 | Meditation |
+| 71 | Other |
+| 73 | Diving |
+| 74 | Operations - Tactical |
+| 75 | Operations - Medical |
+| 76 | Operations - Flying |
+| 77 | Operations - Water |
+| 82 | Ultimate |
+| 83 | Climber |
+| 84 | Jumping Rope |
+| 85 | Australian Football |
+| 86 | Skateboarding |
+| 87 | Coaching |
+| 88 | Ice Bath |
+| 89 | Commuting |
+| 90 | Gaming |
+| 91 | Snowboarding |
+| 92 | Motocross |
+| 93 | Caddying |
+| 94 | Obstacle Course Racing |
+| 95 | Motor Racing |
+| 96 | HIIT |
+| 97 | Spin |
+| 98 | Jiu Jitsu |
+| 99 | Manual Labor |
+| 100 | Cricket |
+| 101 | Pickleball |
+| 102 | Inline Skating |
+| 103 | Box Fitness |
+| 104 | Spikeball |
+| 105 | Wheelchair Pushing |
+| 106 | Paddle Tennis |
+| 107 | Barre |
+| 108 | Stage Performance |
+| 109 | High Stress Work |
+| 110 | Parkour |
+| 111 | Gaelic Football |
+| 112 | Hurling/Camogie |
+| 113 | Circus Arts |
+| 121 | Massage Therapy |
+| 123 | Strength Trainer |
+| 125 | Watching Sports |
+| 126 | Assault Bike |
+| 127 | Kickboxing |
+| 128 | Stretching |
+| 230 | Table Tennis |
+| 231 | Badminton |
+| 232 | Netball |
+| 233 | Sauna |
+| 234 | Disc Golf |
+| 235 | Yard Work |
+| 236 | Air Compression |
+| 237 | Percussive Massage |
+| 238 | Paintball |
+| 239 | Ice Skating |
+| 240 | Handball |
+| 248 | F45 Training |
+| 249 | Padel |
+| 250 | Barry's |
+| 251 | Dedicated Parenting |
+| 252 | Stroller Walking |
+| 253 | Stroller Jogging |
+| 254 | Toddlerwearing |
+| 255 | Babywearing |
+| 258 | Barre3 |
+| 259 | Hot Yoga |
+| 261 | Stadium Steps |
+| 262 | Polo |
+| 263 | Musical Performance |
+| 264 | Kite Boarding |
+| 266 | Dog Walking |
+| 267 | Water Skiing |
+| 268 | Wakeboarding |
+| 269 | Cooking |
+| 270 | Cleaning |
+| 272 | Public Speaking |
+
+*Accompanying Explanation:* This table provides a mapping of `sport_id` integers to their corresponding sport names. The AI should use this table to interpret the `sport_id` field in workout data. Note that "Strength Trainer" activities (ID 123) are explicitly mentioned as available via the `/workout` endpoint in the changelog. Recovery-focused activities (e.g., Ice Bath, Meditation) are *not* currently available via this endpoint.
+
+## 4. Key API Endpoints / Functions Used
+
+*   `GET https://api.prod.whoop.com/developer/v1/activity/workout`: Used to retrieve a collection of workout activities.
+    *   Query Parameters: `start`, `end`, `limit`, `nextToken` (for pagination).
+
+## 5. Important Notes & Best Practices for AI Implementation
+
+*   **`score_state` Handling:** Always check `score_state` before processing the `score` object. Implement logic for `PENDING_SCORE` (retry) and `UNSCORABLE` (no data).
+*   **Activity Types:** Be aware that some recovery-focused activities are not available via the workout endpoint.
+*   **Pagination:** For retrieving large amounts of historical workout data, the AI should implement pagination using `limit` and `nextToken` parameters. Refer to `api_pagination_guide.md`.
+*   **Error Handling:** Implement robust error handling, especially for `401 Unauthorized` responses, which indicate an expired access token and necessitate a token refresh.

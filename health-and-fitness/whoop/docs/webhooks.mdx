@@ -1,0 +1,173 @@
+---
+title: "Webhooks Integration with WHOOP"
+description: "Guide for setting up, receiving, validating, and processing real-time event notifications from the WHOOP Developer Platform via webhooks"
+tags: 
+  - whoop
+  - webhooks
+  - api
+  - integration
+  - real-time
+  - notifications
+  - authentication
+  - security
+  - events
+---
+
+# Webhooks Integration with WHOOP
+
+**Purpose:** This document guides a Coding AI Agent on how to set up, receive, validate, and process real-time event notifications from the WHOOP Developer Platform via webhooks. This allows for efficient data updates without constant polling.
+
+## 1. Core Concepts & Prerequisites
+
+WHOOP webhooks notify your application when specific events occur for users who have authenticated with your app (e.g., a workout is updated, sleep is deleted). This push-based system is more efficient than polling the API.
+
+*   **Prerequisite:** Ensure `getting_started_app_creation_guide.md` is completed (for app setup) and `oauth2_authentication_guide.md` is understood (for user authentication).
+*   **Webhook URL:** An HTTPS endpoint on your server that WHOOP will send POST requests to.
+*   **Webhook Signature Validation:** A critical security measure to verify that incoming webhooks originate from WHOOP. This uses `X-WHOOP-Signature` and `X-WHOOP-Signature-Timestamp` headers along with your `Client Secret`.
+*   **Event Types:** Specific types of events that trigger webhooks (e.g., `workout.updated`, `sleep.deleted`).
+
+## 2. Implementation Steps
+
+### 2.1. Set Up Your Webhook Endpoint
+
+1.  **Create an HTTPS URL:** Develop a publicly accessible HTTPS endpoint on your server (e.g., `https://your-app.com/webhooks/whoop`). This endpoint must be capable of accepting POST requests.
+2.  **Implement Signature Validation:** Before processing any webhook payload, implement logic to validate the `X-WHOOP-Signature` header using your `Client Secret` and the `X-WHOOP-Signature-Timestamp`. **This is crucial for security.**
+3.  **Respond Quickly:** Your endpoint should return a `2XX` HTTP status code (e.g., `200 OK`) as quickly as possible (ideally within 1 second) to acknowledge receipt. Any heavy processing should be offloaded to an asynchronous job (e.g., a queue worker).
+
+### 2.2. Configure Webhook URL in Developer Dashboard
+
+1.  Log in to the [WHOOP Developer Dashboard](https://developer-dashboard.whoop.com/).
+2.  Navigate to your application's settings.
+3.  Add your HTTPS Webhook URL to the "Webhook URL" section at the bottom of the page.
+4.  Save the app settings.
+
+### 2.3. Process Incoming Webhooks
+
+1.  **Receive POST Request:** Your configured webhook endpoint will receive POST requests from WHOOP.
+2.  **Validate Signature:** Perform the signature validation as described in "Webhooks Security" below. If validation fails, drop the request.
+3.  **Parse Webhook Body:** The request body will be a JSON object containing `user_id`, `id` (of the object that triggered the webhook), `type` (event type), and `trace_id`.
+4.  **Identify Event Type:** Use the `type` field (e.g., `workout.updated`, `sleep.deleted`) to determine how to process the event.
+5.  **Fetch Latest Data:** For `*.updated` or `*.deleted` events, the webhook only provides notification. You will typically need to make a subsequent API call to the relevant endpoint (e.g., `/activity/sleep/{sleepId}`) using the `user_id` and `id` from the webhook to retrieve the most up-to-date data.
+6.  **Acknowledge Receipt:** Send a `2XX` HTTP status code back to WHOOP.
+
+## 3. Code Example(s)
+
+**Example: Webhook Payload Structure**
+```json
+{
+  "user_id": 10129,
+  "id": 10235,
+  "type": "workout.updated",
+  "trace_id": "d3709ee7-104e-4f70-a928-2932964b017b"
+}
+```
+*Accompanying Explanation:* This JSON structure is what your webhook endpoint will receive. `user_id` identifies the user, `id` is the identifier of the changed object (e.g., workout ID), `type` specifies the event, and `trace_id` can be used for deduplication.
+
+### 3.1. Webhook Event Types
+
+| Event Type | ID Type | Explanation |
+| :--------- | :------ | :---------- |
+| `recovery.updated` | The id of the cycle for the recovery | Occurs when a recovery is created or updated. |
+| `recovery.deleted` | The id of the cycle for the recovery | Occurs when a recovery is deleted. Note: a recovery is deleted when its associated sleep is deleted. |
+| `workout.updated` | The id of the workout | Occurs when a workout is created or updated. |
+| `workout.deleted` | The id of the workout | Occurs when a workout is deleted. |
+| `sleep.updated` | The id of the sleep | Occurs when a sleep is created or updated. |
+| `sleep.deleted` | The id of the sleep | Occurs when a sleep is deleted. |
+
+*Accompanying Explanation:* This table lists all supported webhook event types. Note that "create" events are published as "updated" events. All event types are sent to the single configured Webhook URL.
+
+### 3.2. Webhooks Security (Signature Validation)
+
+**Example: Signature Validation Pseudocode**
+```javascript
+// client_secret is your App's Client Secret from the Developer Dashboard
+// timestamp_header is the value of the 'X-WHOOP-Signature-Timestamp' header
+// raw_http_request_body is the raw, unparsed body of the POST request
+
+const crypto = require('crypto'); // Node.js crypto module
+
+function validateWhoopWebhookSignature(timestamp_header, raw_http_request_body, signature_header, client_secret) {
+    // 1. Prepend the timestamp to the raw body
+    const signedPayload = timestamp_header + raw_http_request_body;
+
+    // 2. Generate SHA256 HMAC signature
+    const hmac = crypto.createHmac('sha256', client_secret);
+    hmac.update(signedPayload);
+    const calculatedSignature = hmac.digest('base64'); // Base64 encode the result
+
+    // 3. Compare with the received signature header
+    if (calculatedSignature === signature_header) {
+        console.log("Webhook signature validated successfully.");
+        return true;
+    } else {
+        console.error("Webhook signature validation failed.");
+        console.error("Calculated:", calculatedSignature);
+        console.error("Received:", signature_header);
+        return false;
+    }
+}
+
+// Example usage within an Express.js route (conceptual)
+// app.post('/webhooks/whoop', express.raw({ type: 'application/json' }), (req, res) => {
+//     const signature = req.headers['x-whoop-signature'];
+//     const timestamp = req.headers['x-whoop-signature-timestamp'];
+//     const rawBody = req.body.toString('utf8'); // Get raw body as string
+
+//     const CLIENT_SECRET = process.env.WHOOP_CLIENT_SECRET; // Your app's client secret
+
+//     if (!signature || !timestamp || !rawBody || !CLIENT_SECRET) {
+//         return res.status(400).send('Missing webhook headers or configuration.');
+//     }
+
+//     if (!validateWhoopWebhookSignature(timestamp, rawBody, signature, CLIENT_SECRET)) {
+//         return res.status(403).send('Invalid webhook signature.');
+//     }
+
+//     // If signature is valid, parse the JSON body and process asynchronously
+//     const webhookEvent = JSON.parse(rawBody);
+//     console.log(`Received webhook of type: ${webhookEvent.type} for user: ${webhookEvent.user_id}`);
+
+//     // Offload processing to a queue or background job
+//     // processWebhookEvent(webhookEvent);
+
+//     res.status(200).send('Webhook received and acknowledged.');
+// });
+```
+*Accompanying Explanation:* This JavaScript pseudocode outlines the steps for signature validation. The AI must:
+1.  Concatenate the `X-WHOOP-Signature-Timestamp` header value with the raw HTTP request body.
+2.  Compute an HMAC SHA256 hash of this concatenated string using your `Client Secret` as the key.
+3.  Base64 encode the resulting hash.
+4.  Compare this calculated signature with the `X-WHOOP-Signature` header. If they don't match, the request is not from WHOOP and should be rejected.
+
+### 3.3. Example Request Flow (Webhook + API Call)
+
+1.  WHOOP user `YOUR_USER_ID` goes through OAuth consent with your app.
+2.  WHOOP user `YOUR_USER_ID` records a sleep. WHOOP assigns ID `YOUR_SLEEP_ID`.
+3.  WHOOP makes a POST request to your webhook endpoint with a body like:
+    ```json
+    {
+         "user_id": YOUR_USER_ID,
+         "id": YOUR_SLEEP_ID,
+         "type": "sleep.updated",
+         "trace_id": "YOUR_TRACE_ID"
+    }
+    ```
+4.  Your app, upon receiving and validating the webhook, makes a GET request to `/developer/v1/activity/sleep/YOUR_SLEEP_ID` using the access token for `YOUR_USER_ID` to retrieve the full sleep data.
+
+*Accompanying Explanation:* This flow illustrates the typical use case: a webhook notifies you of a change, and then your application makes a targeted API call to fetch the detailed data.
+
+## 4. Key API Endpoints / Functions Used
+
+*   Your custom HTTPS Webhook URL endpoint.
+*   WHOOP API endpoints for data retrieval (e.g., `/developer/v1/activity/sleep/{sleepId}`, `/developer/v1/activity/workout/{workoutId}`, `/developer/v1/cycle/{cycleId}/recovery`) – used to fetch detailed data after a webhook notification.
+
+## 5. Important Notes & Best Practices for AI Implementation
+
+*   **Respond Quickly:** Your webhook endpoint should return a `2XX` response within a second. Offload complex processing to background jobs/queues to avoid timeouts and retries.
+*   **Validate Signatures:** **This is paramount for security.** Always validate the `X-WHOOP-Signature` to ensure the webhook is legitimate.
+*   **Asynchronous Processing:** For any significant data processing or database updates, use asynchronous workers (e.g., message queues) after acknowledging the webhook.
+*   **Reconciliation Job:** Webhooks are event-based notifications and may occasionally be missed or duplicated. Implement a periodic reconciliation job that fetches data directly from the WHOOP API to ensure your data is always in sync.
+*   **Duplicate Webhooks:** It's possible to receive multiple webhook invocations for the same event. Use the `trace_id` field to detect and deduplicate events if necessary.
+*   **Event-Based, Not Data-Bearing:** Remember that webhooks are notifications *about* changes, not the changes themselves. You must call the relevant API endpoint to get the actual updated data.
+*   **Revoking Access:** If a user disables your integration, revoke their access token (`revoking_access_tokens_guide.md`) to stop receiving webhooks for them.
+*   **Delivery & Retries:** WHOOP retries failed webhook deliveries five times over about an hour. Design your endpoint for high availability.

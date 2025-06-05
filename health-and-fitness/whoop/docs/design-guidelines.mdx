@@ -1,0 +1,93 @@
+---
+title: "Design & Brand Guidelines for WHOOP Developer Platform"
+description: "Complete guide for adhering to WHOOP's design and brand guidelines when integrating with the WHOOP API, ensuring consistency and trustworthy user experience."
+tags: ["whoop", "design", "brand", "guidelines", "logo", "typography", "colors", "ui", "ux", "branding", "integration"]
+---
+
+# Design & Brand Guidelines for WHOOP Developer Platform
+
+**Purpose:** This document guides a Coding AI Agent on how to adhere to WHOOP's design and brand guidelines when integrating with the WHOOP API. This ensures consistency with the WHOOP brand and a cohesive experience for members.
+
+## 1. Core Concepts & Prerequisites
+
+Integrating with the WHOOP API means bringing WHOOP data into your application's context. To maintain a consistent and trustworthy experience for WHOOP members, it's essential to follow WHOOP's established design and brand guidelines.
+
+*   **Comprehensive Guide:** The primary resource is a detailed PDF document covering logo use, typefaces, colors, and recommendations.
+*   **Digital Assets:** Acceptable versions of the WHOOP logo are provided for download.
+
+## 2. Implementation Steps
+
+1.  **Access Design Guidelines Document:** Download and thoroughly review the comprehensive WHOOP Brand & Design Guidelines PDF document.
+    *   [View Design Guidelines](https://developer.whoop.com/assets/files/WHOOP%20-%20Brand%20&%20Design%20Guidelines-bdea3554e94b4ea09e68695b1e8dc8e7.pdf)
+2.  **Download Digital Assets:** Obtain the official WHOOP logos and icons in various formats (SVG, PNG, PDF) from the provided ZIP file.
+    *   [Download Logo & Icon](https://developer.whoop.com/assets/files/WHOOP%20-%20Logos-771dd7bce35d93f93653f2ae3225916a.zip)
+    *   **Note:** By downloading, you agree to the [WHOOP Privacy Principles](https://www.whoop.com/privacy/whoop-privacy-principles/) & [Terms of Use](https://www.whoop.com/termsofuse/).
+3.  **Apply Guidelines to UI/UX:**
+    *   **Logo Usage:** Use only the provided official logos and adhere to their specified clear space, minimum size, and color variations.
+    *   **Typography:** If incorporating WHOOP-specific text, consider using recommended typefaces or suitable alternatives.
+    *   **Color Palette:** Integrate WHOOP's brand colors appropriately, especially when displaying WHOOP data (e.g., green, yellow, red for Recovery).
+    *   **Data Presentation:** Ensure WHOOP data is presented clearly, accurately, and in a way that aligns with WHOOP's own data visualization principles.
+    *   **User Authorization Display:** The WHOOP member should always be able to see that they've granted you access to their data and be offered an easy way to disable the integration.
+
+## 3. Code Example(s)
+
+This feature primarily involves design and asset management, not direct API coding. The AI's role is to ensure its UI/UX generation adheres to these external guidelines.
+
+**Example: Conceptual UI/UX Integration (for AI's understanding)**
+```html
+<!-- Example: Displaying WHOOP Recovery Score with appropriate branding -->
+<div class="whoop-data-card">
+    <img src="/path/to/whoop-logo.svg" alt="WHOOP Logo" class="whoop-logo">
+    <h3 class="data-title">Your Daily Recovery</h3>
+    <p class="recovery-score" style="color: #00FF00;">85%</p> <!-- Example: Green for high recovery -->
+    <p class="recovery-status">Well Recovered & Primed to Perform</p>
+    <button class="disconnect-button">Disconnect WHOOP</button> <!-- Easy way to disable integration -->
+</div>
+
+<style>
+/* Example CSS for WHOOP branding adherence */
+.whoop-data-card {
+    font-family: 'WHOOP-Font', sans-serif; /* Use recommended font or similar */
+    border: 1px solid #e0e0e0;
+    padding: 20px;
+    border-radius: 8px;
+    text-align: center;
+}
+.whoop-logo {
+    width: 80px; /* Adhere to minimum size guidelines */
+    height: auto;
+    margin-bottom: 10px;
+}
+.recovery-score {
+    font-size: 2.5em;
+    font-weight: bold;
+}
+.recovery-status {
+    font-size: 0.9em;
+    color: #666;
+}
+.disconnect-button {
+    background-color: #f44336; /* Example: Red for disconnect action */
+    color: white;
+    padding: 10px 15px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    margin-top: 20px;
+}
+</style>
+```
+*Accompanying Explanation:* This conceptual HTML and CSS snippet illustrates how an AI might integrate WHOOP data while considering brand guidelines. It shows placeholder usage of a WHOOP logo, color coding for recovery, and a clear "Disconnect" button for user control. The AI should refer to the actual PDF for precise specifications.
+
+## 4. Key API Endpoints / Functions Used
+
+*   **External Resources (PDF & ZIP files):**
+    *   [WHOOP Brand & Design Guidelines PDF](https://developer.whoop.com/assets/files/WHOOP%20-%20Brand%20&%20Design%20Guidelines-bdea3554e94b4ea09e68695b1e8dc8e7.pdf)
+    *   [WHOOP Logos & Icons ZIP](https://developer.whoop.com/assets/files/WHOOP%20-%20Logos-771dd7bce35d93f93653f2ae3225916a.zip)
+
+## 5. Important Notes & Best Practices for AI Implementation
+
+*   **Mandatory Compliance:** Emphasize that adherence to these guidelines is a requirement for app approval and maintaining a positive user experience.
+*   **User Control:** Always ensure that users can easily see that they have granted access to your app and have an intuitive way to revoke that access (refer to `revoking_access_tokens_guide.md`).
+*   **Consistency:** Strive for visual and experiential consistency with the official WHOOP app where appropriate, especially when displaying core WHOOP metrics.
+*   **Legal Agreements:** Remind the AI that downloading assets implies agreement to WHOOP's Privacy Principles and Terms of Use.

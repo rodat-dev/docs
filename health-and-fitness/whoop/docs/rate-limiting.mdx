@@ -1,0 +1,292 @@
+---
+title: "API Rate Limiting with WHOOP"
+description: "Understand WHOOP API rate limits, how to handle rate limit responses, and implement best practices for managing API quotas to ensure reliable application performance."
+tags: ["whoop", "api", "rate-limiting", "headers", "quotas", "error-handling", "throttling", "best-practices", "429"]
+---
+
+# Guide: API Rate Limiting with WHOOP
+
+**Purpose:** This document guides a Coding AI Agent on understanding and handling WHOOP API rate limits. It explains how to interpret rate limit headers, handle rate limit errors, and implement best practices for quota management.
+
+## 1. Core Concepts & Prerequisites
+
+The WHOOP API implements rate limiting to ensure fair usage and maintain service reliability across all developers and applications.
+
+* **Prerequisite:** Ensure you have a valid access token and understand basic API authentication patterns.
+* **Rate Limits:** The API enforces limits on the number of requests you can make within specific time windows.
+* **Rate Limit Headers:** Each API response includes headers that provide information about your current rate limit status.
+* **HTTP 429 Status:** When rate limits are exceeded, the API returns a `429 Too Many Requests` status code.
+
+## 2. Rate Limit Headers
+
+Every WHOOP API response includes the following rate limit headers:
+
+* **`X-RateLimit-Limit`:** The maximum number of requests allowed in the current time window.
+* **`X-RateLimit-Remaining`:** The number of requests remaining in the current time window.
+* **`X-RateLimit-Reset`:** The Unix timestamp when the current rate limit window resets.
+* **`Retry-After`:** (Only present in 429 responses) The number of seconds to wait before making another request.
+
+## 3. Implementation Steps
+
+### 3.1 Monitoring Rate Limits
+
+1. **Check Headers:** Always examine rate limit headers in API responses.
+2. **Track Usage:** Monitor your remaining quota to proactively avoid rate limits.
+3. **Plan Requests:** Distribute API calls evenly across time windows when possible.
+
+### 3.2 Handling Rate Limit Errors
+
+1. **Detect 429 Status:** Check for `HTTP 429` status codes in responses.
+2. **Extract Retry-After:** Read the `Retry-After` header value.
+3. **Implement Backoff:** Wait for the specified time before retrying.
+4. **Exponential Backoff:** For repeated rate limit hits, implement exponential backoff strategies.
+
+## 4. Code Example(s)
+
+**Example: Rate Limit Aware API Client (JavaScript)**
+```javascript
+class WhoopAPIClient {
+    constructor(accessToken, baseURL = 'https://api.prod.whoop.com') {
+        this.accessToken = accessToken;
+        this.baseURL = baseURL;
+        this.rateLimitInfo = {
+            limit: null,
+            remaining: null,
+            resetTime: null
+        };
+    }
+
+    async makeRequest(endpoint, options = {}) {
+        const url = `${this.baseURL}${endpoint}`;
+        const headers = {
+            'Authorization': `Bearer ${this.accessToken}`,
+            'Content-Type': 'application/json',
+            ...options.headers
+        };
+
+        try {
+            const response = await fetch(url, {
+                ...options,
+                headers
+            });
+
+            // Update rate limit info from headers
+            this.updateRateLimitInfo(response.headers);
+
+            if (response.status === 429) {
+                const retryAfter = parseInt(response.headers.get('Retry-After')) || 60;
+                console.warn(`Rate limit exceeded. Retrying after ${retryAfter} seconds.`);
+                
+                await this.wait(retryAfter * 1000);
+                return this.makeRequest(endpoint, options); // Retry once
+            }
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(`API Error ${response.status}: ${JSON.stringify(errorData)}`);
+            }
+
+            return await response.json();
+        } catch (error) {
+            console.error('API Request failed:', error);
+            throw error;
+        }
+    }
+
+    updateRateLimitInfo(headers) {
+        this.rateLimitInfo = {
+            limit: parseInt(headers.get('X-RateLimit-Limit')) || null,
+            remaining: parseInt(headers.get('X-RateLimit-Remaining')) || null,
+            resetTime: parseInt(headers.get('X-RateLimit-Reset')) || null
+        };
+
+        console.log(`Rate Limit Info: ${this.rateLimitInfo.remaining}/${this.rateLimitInfo.limit} remaining. Reset at: ${new Date(this.rateLimitInfo.resetTime * 1000)}`);
+    }
+
+    async wait(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    // Check if we're close to rate limit
+    isNearRateLimit(threshold = 0.1) {
+        if (!this.rateLimitInfo.limit || !this.rateLimitInfo.remaining) {
+            return false;
+        }
+        return (this.rateLimitInfo.remaining / this.rateLimitInfo.limit) < threshold;
+    }
+
+    // Get time until rate limit resets
+    getTimeUntilReset() {
+        if (!this.rateLimitInfo.resetTime) {
+            return 0;
+        }
+        const now = Math.floor(Date.now() / 1000);
+        return Math.max(0, this.rateLimitInfo.resetTime - now);
+    }
+}
+
+// Example: Paginated data fetching with rate limit awareness
+async function getSleepDataWithRateLimit(client, startDate, endDate) {
+    let allRecords = [];
+    let nextToken = null;
+    let hasMorePages = true;
+
+    while (hasMorePages) {
+        // Check if we're near rate limit and wait if necessary
+        if (client.isNearRateLimit(0.1)) { // 10% threshold
+            const waitTime = client.getTimeUntilReset();
+            if (waitTime > 0) {
+                console.log(`Near rate limit. Waiting ${waitTime} seconds for reset.`);
+                await client.wait(waitTime * 1000);
+            }
+        }
+
+        const queryParams = new URLSearchParams({
+            start: startDate.toISOString(),
+            end: endDate.toISOString(),
+            limit: '25' // Smaller batches to be rate-limit friendly
+        });
+
+        if (nextToken) {
+            queryParams.append('nextToken', nextToken);
+        }
+
+        try {
+            const data = await client.makeRequest(
+                `/developer/v1/activity/sleep?${queryParams.toString()}`
+            );
+
+            if (data.records && data.records.length > 0) {
+                allRecords = allRecords.concat(data.records);
+                console.log(`Fetched ${data.records.length} records. Total: ${allRecords.length}`);
+            }
+
+            nextToken = data.next_token;
+            hasMorePages = !!nextToken;
+
+        } catch (error) {
+            console.error('Failed to fetch sleep data:', error);
+            throw error;
+        }
+    }
+
+    return allRecords;
+}
+
+// Example usage
+// const client = new WhoopAPIClient('your_access_token');
+// const startDate = new Date('2023-01-01T00:00:00.000Z');
+// const endDate = new Date('2023-02-01T00:00:00.000Z');
+// 
+// getSleepDataWithRateLimit(client, startDate, endDate)
+//     .then(records => console.log(`Retrieved ${records.length} sleep records`))
+//     .catch(error => console.error('Error:', error));
+```
+
+## 5. Best Practices for AI Implementation
+
+### 5.1 Proactive Rate Limit Management
+* **Monitor Headers:** Always check rate limit headers in responses.
+* **Implement Thresholds:** Stop making requests when approaching limits (e.g., when remaining < 10% of limit).
+* **Batch Requests:** Group related API calls when possible to minimize request count.
+
+### 5.2 Error Handling Strategies
+* **Retry Logic:** Implement exponential backoff for rate limit errors.
+* **Circuit Breaker:** Temporarily stop requests if hitting rate limits repeatedly.
+* **Graceful Degradation:** Have fallback mechanisms when rate limits are reached.
+
+### 5.3 Pagination Considerations
+* **Smaller Page Sizes:** Use smaller `limit` values when paginating to spread requests over time.
+* **Request Spacing:** Add small delays between paginated requests.
+* **Resume Capability:** Store pagination state to resume after rate limit resets.
+
+### 5.4 Production Recommendations
+* **Request Queuing:** Implement a queue system to manage API request flow.
+* **Distributed Rate Limiting:** If using multiple servers, coordinate rate limit tracking.
+* **Monitoring & Alerting:** Set up alerts when approaching rate limits.
+* **Caching:** Cache API responses when appropriate to reduce request volume.
+
+## 6. Common Rate Limit Scenarios
+
+### 6.1 Bulk Data Import
+When importing historical data, spread requests across multiple time windows:
+```javascript
+async function bulkImportWithRateLimit(client, dataRequests) {
+    const results = [];
+    const batchSize = 10; // Adjust based on rate limits
+    
+    for (let i = 0; i < dataRequests.length; i += batchSize) {
+        const batch = dataRequests.slice(i, i + batchSize);
+        
+        const batchPromises = batch.map(async (request, index) => {
+            // Add small delay between requests in batch
+            await client.wait(index * 100);
+            return client.makeRequest(request.endpoint, request.options);
+        });
+        
+        const batchResults = await Promise.all(batchPromises);
+        results.push(...batchResults);
+        
+        // Wait between batches if more data to process
+        if (i + batchSize < dataRequests.length) {
+            await client.wait(5000); // 5 second delay between batches
+        }
+    }
+    
+    return results;
+}
+```
+
+### 6.2 Real-time Data Polling
+For applications that need frequent updates:
+```javascript
+async function startPolling(client, endpoint, interval = 60000) {
+    setInterval(async () => {
+        try {
+            if (client.isNearRateLimit()) {
+                console.log('Skipping poll due to rate limit proximity');
+                return;
+            }
+            
+            const data = await client.makeRequest(endpoint);
+            // Process data...
+            
+        } catch (error) {
+            if (error.message.includes('429')) {
+                console.log('Rate limited during polling, will retry next interval');
+            } else {
+                console.error('Polling error:', error);
+            }
+        }
+    }, interval);
+}
+```
+
+## 7. Important Notes
+
+* **Rate Limits Vary:** Different endpoints may have different rate limits.
+* **Per-Application Limits:** Rate limits are typically applied per application/API key.
+* **Burst vs. Sustained:** Some APIs allow short bursts but enforce lower sustained rates.
+* **Geographic Considerations:** Rate limits may vary by region or data center.
+* **Token-Based Limits:** Some endpoints may have additional limits based on user tokens.
+
+## 8. Troubleshooting Rate Limit Issues
+
+### 8.1 Common Symptoms
+* Receiving HTTP 429 responses
+* Slow application performance
+* Intermittent API failures
+* Missing data in paginated results
+
+### 8.2 Debugging Steps
+1. **Log Rate Limit Headers:** Always log rate limit information for analysis.
+2. **Monitor Request Patterns:** Track when and how often you hit limits.
+3. **Analyze Time Distribution:** Ensure requests are spread evenly over time.
+4. **Review Error Logs:** Look for patterns in rate limit errors.
+
+### 8.3 Resolution Strategies
+* Implement proper backoff and retry logic
+* Reduce request frequency
+* Optimize API usage patterns
+* Consider caching strategies
+* Contact WHOOP support if limits seem insufficient for your use case

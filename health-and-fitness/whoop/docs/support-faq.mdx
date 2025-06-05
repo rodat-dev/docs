@@ -1,0 +1,83 @@
+---
+title: "Developer Support & FAQ for WHOOP Developer Platform"
+description: "Comprehensive support resources and frequently asked questions for developers working with the WHOOP Developer Platform API."
+tags: ["whoop", "support", "faq", "developer", "help", "troubleshooting", "api", "questions", "feedback"]
+---
+
+# Developer Support & FAQ for WHOOP Developer Platform
+
+**Purpose:** This document guides a Coding AI Agent on how to access support resources and provides answers to frequently asked questions regarding the WHOOP Developer Platform.
+
+## 1. Core Concepts & Prerequisites
+
+The WHOOP Developer Platform offers support channels and a FAQ section to assist developers with integration challenges and common inquiries.
+
+*   **No specific prerequisites for support access.**
+*   **Support Request Link:** The primary channel for submitting issues or feedback.
+*   **FAQ Section:** A collection of common questions and answers.
+
+## 2. Implementation Steps
+
+### 2.1. Accessing FAQ
+
+1.  Review the FAQ section provided below for answers to common questions. This should be the first step for troubleshooting or general inquiries.
+
+### 2.2. Submitting Feedback or Issues
+
+1.  If the FAQ does not address your question or you encounter an issue, submit a request via the official feedback form: [Share Feedback/Request Support](https://whoopinc.typeform.com/to/XmzituEp).
+2.  Provide as much detail as possible regarding your issue or feedback to facilitate a quicker response.
+
+## 3. Code Example(s)
+
+This guide is informational and does not involve direct code implementation.
+
+## 3.1. Frequently Asked Questions (FAQ)
+
+#### How do I get started with the WHOOP Developer Platform?
+To get started, you need to sign up for an account on whoop.com and obtain a WHOOP device. Once you have an account, you can create an application by navigating to Dashboard on developer.whoop.com and logging in with your account credentials. You can reference our [getting started guide](getting_started_app_creation_guide.md) to learn how to integrate WHOOP data into your application.
+
+#### What data is available through the WHOOP API?
+The WHOOP API provides access to various types of data, including [activity](retrieving_workout_data_guide.md) data, [sleep](retrieving_sleep_data_guide.md) data, [recovery](retrieving_recovery_data_guide.md) data, and more. For a detailed list of available endpoints and the data they return, please refer to our [API documentation](https://developer.whoop.com/api).
+
+#### Are there any costs associated with using the WHOOP API?
+Access to the WHOOP Developer Platform and API is currently free. However, you must have a WHOOP device, which requires a membership. Check [join.whoop.com](https://www.join.whoop.com/?utm_source=whoop&utm_medium=developer) for more details.
+
+#### Do you offer a sandbox environment for developers who do not have a WHOOP?
+We require all developers on the Developer Platform to have a WHOOP device. Using WHOOP and understanding the user flow dramatically helps with understanding and integrating with our API.
+
+#### What are the future improvement plans for the WHOOP API?
+We strive to continuously improve our API offering and make it straightforward to work with. We will regularly update the API as new functionality and features are released, and note the update in our [changelog](https://developer.whoop.com/docs/api-changelog/). For ideas on enhancing the API, please [share](https://whoopinc.typeform.com/to/XmzituEp) them with us.
+
+#### What is your rate limiting policy?
+Check out our rate limiting policy [here](api_rate_limiting_guide.md).
+
+#### What is a rough estimate of how much a day's worth of data for an individual would be in terms of KB?
+A day's worth of member data (with one workout, one sleep, and one recovery) would be about 4 KB. For each additional workout or nap, add 1 KB.
+
+#### How often should we refresh tokens in the OAuth flow?
+You should refresh tokens every hour. See documentation for refreshing an access token [here](refreshing_access_tokens_guide.md).
+
+#### Do I, as the developer, need to show that my app has collected a member's authorization in my UI?
+The WHOOP member should always be able to see that they've granted you access to their data. You should offer an easy and intuitive way for the member to [disable](revoking_access_tokens_guide.md) the integration as well. The member can also revoke access to an integration via the WHOOP app.
+
+#### Generally, what is the lift to use the API?
+The WHOOP API utilizes [OAuth 2.0](oauth2_authentication_guide.md) authentication, which is well-documented and industry standard, and [webhooks](webhooks_integration_guide.md) to notify when new data is available. Integrating with the WHOOP API is very straightforward. Typically, the hardest part of integrating with the WHOOP API is understanding the data model ( _e.g., what is a [physiological cycle](retrieving_cycle_data_guide.md), and how does that differ from a calendar day?_). We've heard from countless developers that wearing a WHOOP makes understanding the API and data model significantly easier.
+
+#### Does the API offer access to continuous heart rate data?
+Each WHOOP device can broadcast heart rate over Bluetooth Low Energy (BLE) to other devices. Many applications have implemented a Bluetooth listener to let members connect their WHOOP as a heart rate monitor. Continuous heart rate data is not available via the WHOOP API.
+
+## 3.2. Submitting Feedback
+
+If you are encountering issues with or have feedback about the WHOOP API, you can submit a [request](https://whoopinc.typeform.com/to/XmzituEp). Please note that responses to this form may take some time.
+
+Still have questions? [Share](https://whoopinc.typeform.com/to/XmzituEp) your questions with us.
+
+## 4. Key API Endpoints / Functions Used
+
+*   **Support Request Form (External Link):** `https://whoopinc.typeform.com/to/XmzituEp`
+
+## 5. Important Notes & Best Practices for AI Implementation
+
+*   **Self-Service First:** Encourage the AI to consult the FAQ and other documentation guides before submitting a support request.
+*   **Detailed Requests:** When submitting a request, emphasize providing clear, concise details, including steps to reproduce issues, error messages, and relevant context.
+*   **Patience:** Remind the AI that support responses may not be immediate.

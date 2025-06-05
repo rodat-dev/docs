@@ -1,0 +1,151 @@
+---
+title: "Retrieving User Sleep Data with WHOOP"
+description: "A comprehensive guide on how to fetch user sleep activities, including sleep performance, stages, and sleep needs from the WHOOP API."
+tags: ["whoop", "sleep", "api", "health", "fitness", "rest", "recovery", "sleep-stages", "rem", "deep-sleep", "oauth", "authentication", "data-retrieval"]
+---
+
+# Retrieving User Sleep Data with WHOOP
+
+**Purpose:** This document guides a Coding AI Agent on how to fetch a user's sleep activities, including sleep performance, stages, and sleep needs, from the WHOOP API. It covers the Sleep data model and how to query for sleep records.
+
+## Core Concepts & Prerequisites
+
+WHOOP tracks a member's sleep performance, including duration, stages (Light, REM, Slow Wave Sleep), and calculates sleep needed based on debt and strain. Sleep activities can also include "naps," which are indicated by the `nap` field.
+
+*   **Prerequisite:** Ensure `oauth2_authentication_guide.md` is completed. You must have a valid `access token` for the user.
+*   **Required Scope:** `read:sleep` is necessary to access sleep data.
+*   **Sleep Data Model:** Understanding the structure of the `Sleep` object is crucial for processing the retrieved data.
+
+## Implementation Steps
+
+1.  **Obtain Access Token:** Ensure you have a valid `access token` for the WHOOP user.
+2.  **Construct API Request:** Make a GET request to the Sleep Collection API endpoint: `/developer/v1/activity/sleep`.
+    *   You can use query parameters like `start` and `end` to filter by a specific date range.
+    *   Include the `access token` in the `Authorization: Bearer` header.
+3.  **Process Response:** Parse the JSON response. The `records` field will contain an array of `Sleep` objects.
+    *   Check the `score_state` field (`SCORED`, `PENDING_SCORE`, `UNSCORABLE`) before accessing the `score` object.
+    *   The `nap` boolean indicates if the sleep activity was a nap.
+
+## Code Example
+
+**Example: Fetching Sleep Data for a Date Range (JavaScript Fetch API)**
+
+```javascript
+// Ensure process.env.WHOOP_API_HOSTNAME is set (e.g., 'https://api.prod.whoop.com')
+
+async function getSleepData(accessToken, startDate, endDate) {
+    const query = new URLSearchParams({
+        start: startDate.toISOString(), // e.g., '2022-01-01T00:00:00.000Z'
+        end: endDate.toISOString(),     // e.g., '2022-04-01T00:00:00.000Z'
+        // Add 'limit' and 'nextToken' for pagination if needed (refer to api_pagination_guide.md)
+    });
+
+    const uri = `${process.env.WHOOP_API_HOSTNAME}/developer/v1/activity/sleep?${query.toString()}`;
+
+    try {
+        const sleepResponse = await fetch(uri, {
+            headers: {
+                Authorization: `Bearer ${accessToken}`,
+            },
+        });
+
+        if (sleepResponse.status === 200) {
+            const data = await sleepResponse.json();
+            console.log(`Successfully retrieved ${data.records.length} sleep records.`);
+            return data.records; // Returns an array of sleep objects
+        } else if (sleepResponse.status === 401) {
+            console.error("Unauthorized: Access token might be expired or invalid. Trigger refresh.");
+            throw new Error("Unauthorized");
+        } else {
+            const errorData = await sleepResponse.json();
+            throw new Error(`Received ${sleepResponse.status} status from Whoop: ${JSON.stringify(errorData)}`);
+        }
+    } catch (error) {
+        console.error("Error fetching sleep data:", error);
+        throw error;
+    }
+}
+
+// Example usage: Fetch sleep data for January 2022
+// const USER_ACCESS_TOKEN = "YOUR_USER_ACCESS_TOKEN";
+// const start = new Date('2022-01-01T00:00:00.000Z');
+// const end = new Date('2022-02-01T00:00:00.000Z'); // Up to, but not including, Feb 1st
+
+// getSleepData(USER_ACCESS_TOKEN, start, end)
+//     .then(sleepRecords => {
+//         sleepRecords.forEach(sleep => {
+//             console.log(`Sleep ID: ${sleep.id}, Start: ${sleep.start}, End: ${sleep.end}, Nap: ${sleep.nap}`);
+//             if (sleep.score_state === 'SCORED' && sleep.score) {
+//                 console.log(`  Performance: ${sleep.score.sleep_performance_percentage}%`);
+//                 console.log(`  Total In Bed Time: ${sleep.score.stage_summary.total_in_bed_time_milli / (1000 * 60 * 60)} hours`);
+//             }
+//         });
+//     })
+//     .catch(err => {
+//         console.error("Failed to get sleep data:", err);
+//     });
+```
+
+**Accompanying Explanation:** This JavaScript function `getSleepData` fetches sleep records within a specified date range. It constructs the API URL with `start` and `end` query parameters (formatted as ISO 8601 strings) and includes the access token. It then iterates through the returned `records` array, logging key sleep details and conditionally accessing `score` data if `score_state` is `SCORED`.
+
+## Sleep Data Model
+
+```json
+{
+  "id": 93845,
+  "user_id": 10129,
+  "created_at": "2022-04-24T11:25:44.774Z",
+  "updated_at": "2022-04-24T14:25:44.774Z",
+  "start": "2022-04-24T02:25:44.774Z",
+  "end": "2022-04-24T10:25:44.774Z",
+  "timezone_offset": "-05:00",
+  "nap": false,
+  "score_state": "SCORED",
+  "score": {
+    "stage_summary": {
+      "total_in_bed_time_milli": 30272735,
+      "total_awake_time_milli": 1403507,
+      "total_no_data_time_milli": 0,
+      "total_light_sleep_time_milli": 14905851,
+      "total_slow_wave_sleep_time_milli": 6630370,
+      "total_rem_sleep_time_milli": 5879573,
+      "sleep_cycle_count": 3,
+      "disturbance_count": 12
+    },
+    "sleep_needed": {
+      "baseline_milli": 27395716,
+      "need_from_sleep_debt_milli": 352230,
+      "need_from_recent_strain_milli": 208595,
+      "need_from_recent_nap_milli": -12312
+    },
+    "respiratory_rate": 16.11328125,
+    "sleep_performance_percentage": 98,
+    "sleep_consistency_percentage": 90,
+    "sleep_efficiency_percentage": 91.69533848
+  }
+}
+```
+
+**Data Model Explanation:**
+*   `id`, `user_id`: Identifiers for the sleep activity and user.
+*   `start`, `end`: Time bounds of the sleep activity.
+*   `timezone_offset`: User's timezone offset.
+*   `nap`: Boolean indicating if this sleep activity was a nap (`true`) or primary sleep (`false`).
+*   `score_state`: Indicates if the sleep was `SCORED`, `PENDING_SCORE`, or `UNSCORABLE`. The `score` object is only present if `SCORED`.
+*   `score`: Contains detailed sleep metrics:
+    *   `stage_summary`: Breakdown of time spent in different sleep stages (light, slow wave, REM, awake), cycle count, and disturbances.
+    *   `sleep_needed`: Information on baseline sleep need, and adjustments for sleep debt, recent strain, and naps.
+    *   `respiratory_rate`, `sleep_performance_percentage`, `sleep_consistency_percentage`, `sleep_efficiency_percentage`: Overall sleep quality metrics.
+
+## Key API Endpoints
+
+*   `GET https://api.prod.whoop.com/developer/v1/activity/sleep`: Used to retrieve a collection of sleep activities.
+    *   Query Parameters: `start`, `end`, `limit`, `nextToken` (for pagination).
+
+## Important Notes & Best Practices
+
+*   **Date Range Filtering:** Use `start` and `end` query parameters to efficiently retrieve sleep data for specific periods.
+*   **`score_state` Handling:** Always check `score_state` before processing the `score` object. Implement logic for `PENDING_SCORE` (retry) and `UNSCORABLE` (no data).
+*   **Naps:** The `nap` field is important for distinguishing primary sleep from naps, which can affect sleep debt calculations.
+*   **Pagination:** For retrieving large amounts of historical sleep data, implement pagination using `limit` and `nextToken` parameters. Refer to `api_pagination_guide.md`.
+*   **Error Handling:** Implement robust error handling, especially for `401 Unauthorized` responses, which indicate an expired access token and necessitate a token refresh.

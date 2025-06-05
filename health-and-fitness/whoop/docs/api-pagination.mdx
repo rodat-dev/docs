@@ -1,0 +1,119 @@
+---
+title: "API Pagination with WHOOP"
+description: "Learn how to paginate through large collections of data returned by the WHOOP API using nextToken and limit parameters to retrieve complete datasets."
+tags: ["whoop", "api", "pagination", "nextToken", "limit", "javascript", "data-retrieval", "collection"]
+---
+
+# Guide: API Pagination with WHOOP
+
+**Purpose:** This document guides a Coding AI Agent on how to paginate through large collections of data returned by the WHOOP API. It explains the use of `nextToken` and `limit` parameters to retrieve full datasets.
+
+## 1. Core Concepts & Prerequisites
+
+Many WHOOP API endpoints that return collections of records (e.g., Cycles, Recovery, Sleep, Workout) may truncate responses to a default number of records. To retrieve all records, you must paginate through the results.
+
+*   **Prerequisite:** Ensure `oauth2_authentication_guide.md` is completed. You must have a valid `access token` for the user.
+*   **`nextToken`:** A token returned in the API response that represents the current page. This token is sent in the subsequent request to retrieve the next page of records.
+*   **`limit`:** A query parameter that allows you to control the number of records returned per page (up to a maximum allowed value specified per endpoint in the API Docs).
+
+## 2. Implementation Steps
+
+1.  **Initial Request:** Make your first GET request to a collection API endpoint (e.g., `/developer/v1/activity/sleep`).
+    *   Optionally, include a `limit` parameter to specify the desired page size.
+    *   Include any other relevant query parameters (e.g., `start`, `end`).
+    *   Include the `access token` in the `Authorization: Bearer` header.
+2.  **Check for `next_token`:** In the response, examine the `next_token` field.
+    *   If `next_token` is present and not empty, there are more pages of data.
+    *   If `next_token` is empty, you have iterated through all pages.
+3.  **Subsequent Requests:** If a `next_token` is present, make a subsequent GET request to the *same* API endpoint.
+    *   Include the `nextToken` query parameter with the value received from the previous response.
+    *   **Crucially, include the *same* `start` and `end` (or other filtering) query parameters as your initial request.** The `nextToken` is context-dependent.
+    *   Continue this process until the `next_token` in the response is empty.
+
+## 3. Code Example(s)
+
+**Example: Paginate through Sleep Data (JavaScript Fetch API)**
+```javascript
+// Ensure process.env.WHOOP_API_HOSTNAME is set (e.g., 'https://api.prod.whoop.com')
+
+async function getAllSleepDataPaginated(accessToken, startDate, endDate, initialLimit = 50) {
+    let allSleepRecords = [];
+    let nextToken = null;
+    let hasMorePages = true;
+
+    while (hasMorePages) {
+        const queryParams = new URLSearchParams({
+            start: startDate.toISOString(),
+            end: endDate.toISOString(),
+            limit: initialLimit.toString(), // Set your desired page limit
+        });
+
+        if (nextToken) {
+            queryParams.append('nextToken', nextToken);
+        }
+
+        const uri = `${process.env.WHOOP_API_HOSTNAME}/developer/v1/activity/sleep?${queryParams.toString()}`;
+
+        try {
+            const response = await fetch(uri, {
+                headers: {
+                    Authorization: `Bearer ${accessToken}`,
+                },
+            });
+
+            if (response.status === 200) {
+                const data = await response.json();
+                if (data.records && data.records.length > 0) {
+                    allSleepRecords = allSleepRecords.concat(data.records);
+                    console.log(`Fetched ${data.records.length} records. Total so far: ${allSleepRecords.length}`);
+                }
+
+                nextToken = data.next_token;
+                hasMorePages = !!nextToken; // If nextToken is null/empty, hasMorePages becomes false
+            } else if (response.status === 401) {
+                console.error("Unauthorized: Access token might be expired or invalid. Trigger refresh.");
+                throw new Error("Unauthorized"); // Stop pagination on auth error
+            } else {
+                const errorData = await response.json();
+                throw new Error(`Received ${response.status} status from Whoop: ${JSON.stringify(errorData)}`);
+            }
+        } catch (error) {
+            console.error("Error during pagination:", error);
+            throw error; // Stop pagination on any error
+        }
+    }
+    console.log(`Finished fetching all sleep data. Total records: ${allSleepRecords.length}`);
+    return allSleepRecords;
+}
+
+// Example usage: Fetch all sleep data for Q1 2022
+// const USER_ACCESS_TOKEN = "YOUR_USER_ACCESS_TOKEN";
+// const startQ1 = new Date('2022-01-01T00:00:00.000Z');
+// const endQ1 = new Date('2022-04-01T00:00:00.000Z');
+
+// getAllSleepDataPaginated(USER_ACCESS_TOKEN, startQ1, endQ1, 20) // Request 20 records per page
+//     .then(allRecords => {
+//         console.log(`Successfully retrieved a total of ${allRecords.length} sleep records.`);
+//         // Process allRecords array
+//     })
+//     .catch(err => {
+//         console.error("Failed to retrieve all sleep data:", err);
+//     });
+```
+*Accompanying Explanation:* This JavaScript function `getAllSleepDataPaginated` demonstrates a common pattern for fetching all pages of a collection. It uses a `while` loop that continues as long as a `next_token` is returned. In each iteration, it appends the `nextToken` to the query parameters for the subsequent request. It's crucial to re-include the original `start` and `end` (or other filtering) parameters with each paginated request.
+
+## 4. Key API Endpoints / Functions Used
+
+*   `GET https://api.prod.whoop.com/developer/v1/activity/sleep`: Example endpoint for sleep collection. (This pattern applies to `cycle`, `recovery`, `workout` collections as well).
+    *   Query Parameters:
+        *   `nextToken`: The token for the next page.
+        *   `limit`: The desired number of records per page.
+        *   `start`, `end`: (Optional) Date range filters, which must be consistent across all paginated requests for a given query.
+
+## 5. Important Notes & Best Practices for AI Implementation
+
+*   **Consistency of Filters:** Emphasize that any initial filtering parameters (like `start` and `end` dates) must be included in *every* subsequent paginated request using `nextToken`. The `nextToken` is specific to the original query.
+*   **`next_token` as Indicator:** The absence or emptiness of `next_token` is the definitive signal that there are no more pages to fetch.
+*   **Rate Limiting:** Be mindful of API rate limits when implementing pagination, especially for large datasets. Consider adding delays between requests if hitting limits. Refer to `api_rate_limiting_guide.md`.
+*   **Error Handling:** Implement robust error handling, especially for `401 Unauthorized` responses, which indicate an expired access token and necessitate a token refresh, potentially stopping the pagination process.
+*   **Max Limit:** Be aware that each API endpoint has a maximum allowed `limit` value. Requesting more than this maximum will result in the API returning only up to its maximum.

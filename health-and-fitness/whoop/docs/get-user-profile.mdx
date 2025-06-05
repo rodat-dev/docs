@@ -1,0 +1,157 @@
+---
+title: "Retrieving User Profile & Body Measurements with WHOOP"
+description: "Complete guide for fetching user's basic profile information and body measurements from the WHOOP API"
+tags: ["whoop", "api", "user-profile", "body-measurements", "oauth", "authentication", "height", "weight", "heart-rate", "javascript", "node.js"]
+---
+
+# Guide: Retrieving User Profile & Body Measurements with WHOOP
+
+**Purpose:** This document guides a Coding AI Agent on how to fetch a user's basic profile information (email, name) and body measurements (height, weight, max heart rate) from the WHOOP API.
+
+## 1. Core Concepts & Prerequisites
+
+The WHOOP API provides endpoints to access fundamental user information, which can be useful for personalizing experiences or for analytical purposes.
+
+*   **Prerequisite:** Ensure `oauth2_authentication_guide.md` is completed. You must have a valid `access token` for the user.
+*   **Required Scopes:**
+    *   `read:profile` for basic profile information.
+    *   `read:body_measurement` for body measurements.
+*   **Data Models:** Understanding the structure of the `Basic Profile` and `Body Measurements` objects is crucial.
+
+## 2. Implementation Steps
+
+1.  **Obtain Access Token:** Ensure you have a valid `access token` for the WHOOP user.
+2.  **Construct API Request for Basic Profile:** Make a GET request to the Basic Profile API endpoint: `/developer/v1/user/profile/basic`.
+    *   Include the `access token` in the `Authorization: Bearer` header.
+3.  **Construct API Request for Body Measurements:** Make a GET request to the Body Measurements API endpoint: `/developer/v1/user/profile/body_measurement`.
+    *   Include the `access token` in the `Authorization: Bearer` header.
+4.  **Process Response:** Parse the JSON response for each request.
+
+## 3. Code Example(s)
+
+**Example: Fetching User Profile and Body Measurements (JavaScript Fetch API)**
+
+```javascript
+// Ensure process.env.WHOOP_API_HOSTNAME is set (e.g., 'https://api.prod.whoop.com')
+
+async function getUserProfile(accessToken) {
+    const uri = `${process.env.WHOOP_API_HOSTNAME}/developer/v1/user/profile/basic`;
+
+    try {
+        const response = await fetch(uri, {
+            headers: {
+                Authorization: `Bearer ${accessToken}`,
+            },
+        });
+
+        if (response.status === 200) {
+            const profileData = await response.json();
+            console.log("Successfully retrieved user basic profile:", profileData);
+            return profileData;
+        } else if (response.status === 401) {
+            console.error("Unauthorized: Access token might be expired or invalid. Trigger refresh.");
+            throw new Error("Unauthorized");
+        } else {
+            const errorData = await response.json();
+            throw new Error(`Received ${response.status} status from Whoop for profile: ${JSON.stringify(errorData)}`);
+        }
+    } catch (error) {
+        console.error("Error fetching user profile:", error);
+        throw error;
+    }
+}
+
+async function getUserBodyMeasurements(accessToken) {
+    const uri = `${process.env.WHOOP_API_HOSTNAME}/developer/v1/user/profile/body_measurement`;
+
+    try {
+        const response = await fetch(uri, {
+            headers: {
+                Authorization: `Bearer ${accessToken}`,
+            },
+        });
+
+        if (response.status === 200) {
+            const bodyMeasurementsData = await response.json();
+            console.log("Successfully retrieved user body measurements:", bodyMeasurementsData);
+            return bodyMeasurementsData;
+        } else if (response.status === 401) {
+            console.error("Unauthorized: Access token might be expired or invalid. Trigger refresh.");
+            throw new Error("Unauthorized");
+        } else {
+            const errorData = await response.json();
+            throw new Error(`Received ${response.status} status from Whoop for body measurements: ${JSON.stringify(errorData)}`);
+        }
+    } catch (error) {
+        console.error("Error fetching user body measurements:", error);
+        throw error;
+    }
+}
+
+// Example usage:
+// const USER_ACCESS_TOKEN = "YOUR_USER_ACCESS_TOKEN";
+
+// getUserProfile(USER_ACCESS_TOKEN)
+//     .then(profile => {
+//         if (profile) {
+//             console.log(`User: ${profile.first_name} ${profile.last_name}, Email: ${profile.email}`);
+//         }
+//     })
+//     .catch(err => {
+//         console.error("Failed to get user profile:", err);
+//     });
+
+// getUserBodyMeasurements(USER_ACCESS_TOKEN)
+//     .then(measurements => {
+//         if (measurements) {
+//             console.log(`Height: ${measurements.height_meter}m, Weight: ${measurements.weight_kilogram}kg, Max HR: ${measurements.max_heart_rate}`);
+//         }
+//     })
+//     .catch(err => {
+//         console.error("Failed to get user body measurements:", err);
+//     });
+```
+
+*Accompanying Explanation:* These JavaScript functions `getUserProfile` and `getUserBodyMeasurements` demonstrate how to make GET requests to their respective API endpoints. They include the access token in the `Authorization` header and handle successful responses as well as `401 Unauthorized` errors, prompting the AI to consider token refresh.
+
+## 3.1. Basic Profile Data Model
+
+```json
+{
+  "user_id": 10129,
+  "email": "jsmith123@whoop.com",
+  "first_name": "John",
+  "last_name": "Smith"
+}
+```
+
+*Accompanying Explanation:*
+*   `user_id`: The unique identifier for the WHOOP user.
+*   `email`: User's email address.
+*   `first_name`, `last_name`: User's first and last name.
+
+## 3.2. Body Measurements Data Model
+
+```json
+{
+  "height_meter": 1.8288,
+  "weight_kilogram": 90.7185,
+  "max_heart_rate": 200
+}
+```
+
+*Accompanying Explanation:*
+*   `height_meter`: User's height in meters.
+*   `weight_kilogram`: User's weight in kilograms.
+*   `max_heart_rate`: The maximum heart rate calculated for the user by WHOOP.
+
+## 4. Key API Endpoints / Functions Used
+
+*   `GET https://api.prod.whoop.com/developer/v1/user/profile/basic`: Used to retrieve basic user profile information.
+*   `GET https://api.prod.whoop.com/developer/v1/user/profile/body_measurement`: Used to retrieve user body measurements.
+
+## 5. Important Notes & Best Practices for AI Implementation
+
+*   **Scope Requirements:** Ensure the application has the correct scopes (`read:profile`, `read:body_measurement`) to access these data types.
+*   **Error Handling:** Implement robust error handling, especially for `401 Unauthorized` responses, which indicate an expired access token and necessitate a token refresh.
+*   **Data Units:** Note the units for height (meters) and weight (kilograms) to ensure correct interpretation and display.
