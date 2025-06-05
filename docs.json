@@ -3,6 +3,9 @@
   "theme": "almond",
   "name": "Human",
   "favicon": "/favicon.svg",
+  "colors": {
+    "primary": "#FD366E"
+  },
   "navigation": {
     "tabs": [
       {
