@@ -3,9 +3,17 @@
   "theme": "mint",
   "name": "Human",
   "colors": {
-    "primary": "#16A34A",
-    "light": "#07C983",
-    "dark": "#15803D"
+    "primary": "#FD366E",
+    "light": "#FF5A8A",
+    "dark": "#E5195A",
+    "background": {
+      "dark": "#18181B",
+      "light": "#FAFAFA"
+    },
+    "foreground": {
+      "dark": "#FAFAFA",
+      "light": "#18181B"
+    }
   },
   "favicon": "/favicon.svg",
   "navigation": {
