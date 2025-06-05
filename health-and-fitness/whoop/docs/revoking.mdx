@@ -1,0 +1,83 @@
+---
+title: 'Revoking User Access with WHOOP'
+description: 'Security measurements. How to revoke user access'
+---
+**Purpose:** This document guides a Coding AI Agent on how to revoke a user's access token from your application. This is essential for respecting user privacy when they disable your integration and ensures you no longer receive webhooks for that user.
+
+## 1. Core Concepts & Prerequisites
+
+When a user decides to disconnect your application from their WHOOP account, it's best practice to immediately revoke their access. This action invalidates their tokens and stops any further data access or webhook deliveries for that user.
+
+*   **Prerequisite:** You must have a valid `access token` for the user whose access you wish to revoke.
+*   **`revokeUserOauthAccess` API Endpoint:** This specific API endpoint is designed for revoking user access.
+
+## 2. Implementation Steps
+
+1.  **Identify User:** Determine the `user_id` of the WHOOP user whose access needs to be revoked.
+2.  **Call Revocation Endpoint:** Make an API call to the `revokeUserOauthAccess` endpoint. This endpoint typically requires the `access token` of the user to be revoked.
+
+## 3. Code Example(s)
+
+The original documentation mentions the `revokeUserOauthAccess` API endpoint but does not provide a direct code example for its usage. Based on standard REST API practices, it would likely be a POST request with the access token in the Authorization header.
+
+**Example: Revoking Access Token (Conceptual JavaScript)**
+```javascript
+// Ensure process.env.WHOOP_API_HOSTNAME is set (e.g., 'https://api.prod.whoop.com')
+
+async function revokeUserAccess(accessTokenToRevoke) {
+    const revokeUrl = `${process.env.WHOOP_API_HOSTNAME}/api/v1/user/oauth/revoke`; // Assuming this is the endpoint based on API docs
+    // Note: The original document links to https://developer.whoop.com/api/#tag/User/operation/revokeUserOAuthAccess
+    // which implies a specific endpoint. A Coding AI Agent would consult the full API reference for the exact URL and method.
+    // For this example, we'll use a plausible structure.
+
+    try {
+        const response = await fetch(revokeUrl, {
+            method: 'POST', // Or DELETE, depending on API design. POST is common for "actions".
+            headers: {
+                'Authorization': `Bearer ${accessTokenToRevoke}`,
+                'Content-Type': 'application/json' // May or may not be required for this endpoint
+            },
+            // The body might be empty or contain a specific payload if required by the API.
+            // The documentation implies the access token in the header is sufficient.
+            body: JSON.stringify({}) // Send an empty JSON object if a body is required but no data is needed.
+        });
+
+        if (response.status === 204 || response.status === 200) {
+            console.log(`Access token successfully revoked.`);
+            // IMPORTANT: Remove the user's tokens from your database
+            // e.g., deleteUserTokens(userId);
+            return true;
+        } else {
+            const errorData = await response.json();
+            throw new Error(`Failed to revoke access: ${response.status} - ${JSON.stringify(errorData)}`);
+        }
+    } catch (error) {
+        console.error("Error revoking access:", error);
+        throw error;
+    }
+}
+
+// Example usage:
+// const USER_ACCESS_TOKEN = "YOUR_USER_ACCESS_TOKEN"; // The token belonging to the user who wants to disable integration
+// revokeUserAccess(USER_ACCESS_TOKEN)
+//     .then(success => {
+//         if (success) {
+//             console.log("User's integration disabled in your system.");
+//         }
+//     })
+//     .catch(err => {
+//         console.error("Could not disable integration:", err);
+//     });
+```
+*Accompanying Explanation:* This conceptual JavaScript function `revokeUserAccess` demonstrates how to make a POST request to a hypothetical revocation endpoint. The key is to include the user's access token in the `Authorization: Bearer` header. Upon success, the AI should delete the user's tokens from its own database to complete the de-authorization process on its end. The exact endpoint URL and HTTP method should be confirmed with the official WHOOP API reference.
+
+## 4. Key API Endpoints / Functions Used
+
+*   `revokeUserOauthAccess` (from WHOOP API documentation, specific URL to be confirmed in full API reference): This is the API operation for revoking user OAuth access.
+
+## 5. Important Notes & Best Practices for AI Implementation
+
+*   **Privacy Compliance:** Revoking access tokens is a critical step in respecting user privacy when they opt out of your integration. Implement this promptly.
+*   **Webhook Cessation:** Emphasize that revoking the access token will also ensure that your application no longer receives webhooks for that specific user.
+*   **Database Cleanup:** After successfully revoking the token via the WHOOP API, the AI must also remove the corresponding access and refresh tokens from its own database.
+*   **User-Initiated Action:** This action is typically triggered by a user's explicit choice within your application to disconnect their WHOOP account.

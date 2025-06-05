@@ -1,0 +1,177 @@
+---
+title: 'OAuth 2.0 Authentication with WHOOP'
+description: 'Authentication with OAuth 2.0'
+---
+**Purpose:** This document guides a Coding AI Agent on how to implement the OAuth 2.0 authorization flow to obtain access tokens for a WHOOP user. It covers the required information, the steps to request an access token, and how to use it for subsequent API calls.
+
+## 1. Core Concepts & Prerequisites
+
+OAuth 2.0 is the standard protocol used by WHOOP for user authorization. It allows your application to access a user's data on their behalf after they grant consent.
+
+*   **Prerequisite:** Ensure `getting_started_app_creation_guide.md` is completed. You must have a registered App in the WHOOP Developer Dashboard with a `Client ID`, `Client Secret`, and configured `Redirect URIs`.
+*   **Authorization URL:** The WHOOP endpoint where users are redirected to authorize your app.
+*   **Token URL:** The WHOOP endpoint where your app exchanges an authorization code for an access token.
+*   **Access Token:** A short-lived credential used to make authenticated API requests.
+*   **Refresh Token:** A long-lived credential used to obtain new access tokens after they expire (requires `offline` scope).
+*   **Scopes:** Permissions requested by your app (e.g., `read:profile`, `offline`).
+*   **State Parameter:** A security measure (random string) to prevent CSRF attacks, passed to WHOOP and returned in the redirect.
+
+## 2. Implementation Steps
+
+The OAuth 2.0 flow typically involves these steps:
+
+1.  **Prepare Authorization Request:** Construct a URL to the WHOOP Authorization URL, including your `Client ID`, `Redirect URI`, `Scopes`, and a generated `State` parameter.
+2.  **Redirect User for Authorization:** Redirect the user's browser to this Authorization URL.
+3.  **User Consent:** The user logs into WHOOP (if not already) and grants your application permission for the requested scopes.
+4.  **WHOOP Redirects Back:** WHOOP redirects the user back to your registered `Redirect URI` with an `authorization code` and the `state` parameter.
+5.  **Validate State:** Your application must verify that the returned `state` parameter matches the one sent in the initial request.
+6.  **Exchange Code for Tokens:** Your application makes a server-side POST request to the WHOOP Token URL, exchanging the `authorization code` for an `access token` and (if `offline` scope was requested) a `refresh token`.
+7.  **Store Tokens Securely:** Store the `access token` and `refresh token` (if received) securely in your backend.
+
+## 3. Code Example(s)
+
+This example demonstrates the OAuth 2.0 flow using `passport-oauth2` in a Node.js (Express) environment, as provided in the original documentation.
+
+**Example: Passport.js OAuth 2.0 Strategy Configuration**
+```javascript
+// Ensure these environment variables are set:
+// process.env.WHOOP_API_HOSTNAME (e.g., 'https://api.prod.whoop.com')
+// process.env.CLIENT_ID
+// process.env.CLIENT_SECRET
+// process.env.CALLBACK_URL (must match a registered Redirect URI)
+
+const passport = require('passport');
+const OAuth2Strategy = require('passport-oauth2').Strategy;
+const fetch = require('node-fetch'); // Or use axios, etc.
+
+// Assume a Prisma client is available for user persistence
+// const { PrismaClient } = require('@prisma/client');
+// const prisma = new PrismaClient();
+
+const whoopOAuthConfig = {
+    authorizationURL: `${process.env.WHOOP_API_HOSTNAME}/oauth/oauth2/auth`,
+    tokenURL: `${process.env.WHOOP_API_HOSTNAME}/oauth/oauth2/token`,
+    clientID: process.env.CLIENT_ID,
+    clientSecret: process.env.CLIENT_SECRET,
+    callbackURL: process.env.CALLBACK_URL,
+    state: true, // Passport will generate and verify the state parameter
+    scope: [
+        'offline', // Request 'offline' scope to receive a refresh token
+        'read:profile' // Example scope to read user profile data
+    ],
+};
+
+// Function to execute after successful OAuth flow
+const getUser = async (accessToken, refreshToken, { expires_in }, profile, done) => {
+    // 'profile' is normalized by Passport if userProfile function is set
+    const { first_name, last_name, user_id } = profile;
+
+    const createUserParams = {
+        accessToken,
+        expiresAt: Date.now() + expires_in * 1000, // Calculate expiration timestamp
+        firstName: first_name,
+        lastName: last_name,
+        refreshToken,
+        userId: user_id,
+    };
+
+    try {
+        // In a real application, you would upsert (create or update) the user in your database
+        // based on their WHOOP user_id and store their tokens.
+        // For demonstration, we'll just log and pass the user info.
+        console.log(`User ${user_id} authenticated. Access Token: ${accessToken}, Refresh Token: ${refreshToken}`);
+        // const user = await prisma.user.upsert({
+        //     where: { userId: user_id },
+        //     create: createUserParams,
+        //     update: createUserParams,
+        // });
+        done(null, { userId: user_id, firstName: first_name, lastName: last_name, accessToken, refreshToken, expiresAt: createUserParams.expiresAt });
+    } catch (error) {
+        done(error);
+    }
+};
+
+// Function to fetch user profile information using the access token
+const fetchProfile = async (accessToken, done) => {
+    try {
+        const profileResponse = await fetch(
+            `${process.env.WHOOP_API_HOSTNAME}/developer/v1/user/profile/basic`,
+            {
+                headers: {
+                    Authorization: `Bearer ${accessToken}`,
+                },
+            },
+        );
+
+        if (!profileResponse.ok) {
+            throw new Error(`Failed to fetch profile: ${profileResponse.statusText}`);
+        }
+
+        const profile = await profileResponse.json();
+        done(null, profile); // Passport will normalize this profile
+    } catch (error) {
+        done(error);
+    }
+};
+
+// Instantiate the OAuth2Strategy
+const whoopAuthorizationStrategy = new OAuth2Strategy(whoopOAuthConfig, getUser);
+whoopAuthorizationStrategy.userProfile = fetchProfile; // Tell Passport how to get user profile
+
+// Use the strategy with Passport
+passport.use('withWhoop', whoopAuthorizationStrategy);
+
+// Example Express.js routes (conceptual)
+// const express = require('express');
+// const app = express();
+// app.use(passport.initialize());
+// app.use(passport.session()); // If using sessions
+
+// app.get('/auth/whoop',
+//     passport.authenticate('withWhoop'));
+
+// app.get('/auth/whoop/callback',
+//     passport.authenticate('withWhoop', { failureRedirect: '/login' }),
+//     function (req, res) {
+//         // Successful authentication, redirect home or to a welcome page.
+//         res.redirect('/welcome');
+//     });
+
+// // Example of how to serialize/deserialize user for session management (if applicable)
+// passport.serializeUser((user, done) => {
+//     done(null, user.userId);
+// });
+
+// passport.deserializeUser(async (id, done) => {
+//     // In a real app, retrieve user from your database using the id
+//     // For this example, we'll just return a dummy user
+//     const user = { userId: id, firstName: 'Demo', lastName: 'User' };
+//     done(null, user);
+// });
+
+// // Start the server (conceptual)
+// const PORT = process.env.PORT || 3000;
+// app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+```
+*Accompanying Explanation:* This code sets up a Passport.js OAuth2 strategy for WHOOP.
+1.  `whoopOAuthConfig`: Defines the necessary URLs, client credentials, callback URL, and requested scopes. The `state: true` ensures Passport handles CSRF protection.
+2.  `getUser`: This callback function is executed after WHOOP successfully authorizes the user and returns an authorization code. It receives the `accessToken`, `refreshToken`, `expires_in` (from `results` object), and `profile` data. This is where the AI should implement logic to save these tokens and user information to its database.
+3.  `fetchProfile`: This function is used by Passport to fetch the user's basic profile information from WHOOP using the obtained `accessToken`. This data is then normalized and passed to the `getUser` callback.
+4.  `passport.use('withWhoop', whoopAuthorizationStrategy)`: Registers the custom strategy with Passport.
+5.  `app.get('/auth/whoop', ...)` and `app.get('/auth/whoop/callback', ...)`: Illustrate typical Express.js routes for initiating the OAuth flow and handling the callback. The AI should adapt these to its specific web framework.
+
+## 4. Key API Endpoints / Functions Used
+
+*   `https://api.prod.whoop.com/oauth/oauth2/auth`: **Authorization URL** - Used to initiate the OAuth flow and prompt user consent.
+*   `https://api.prod.whoop.com/oauth/oauth2/token`: **Token URL** - Used to exchange the authorization code for access and refresh tokens.
+*   `https://api.prod.whoop.com/developer/v1/user/profile/basic`: **User Profile API** - Used to retrieve basic user profile information (requires `read:profile` scope).
+*   `passport-oauth2` library (or equivalent OAuth 2.0 client library in other languages).
+
+## 5. Important Notes & Best Practices for AI Implementation
+
+*   **Server-Side Only:** All requests involving `Client Secret` and token exchange must be made from your server-side application. Never expose `Client Secret` in client-side code.
+*   **Error Handling:** Implement robust error handling for all API calls, especially during the token exchange process.
+*   **Token Storage:** Access and refresh tokens must be stored securely in your backend database, associated with the user.
+*   **State Parameter Validation:** Always validate the `state` parameter returned by WHOOP against the one you sent to prevent CSRF attacks. OAuth libraries often handle this automatically if configured.
+*   **Scope Management:** Only request the scopes absolutely necessary for your application's functionality. The `offline` scope is crucial if you need a refresh token for long-term access.
+*   **Library Usage:** Strongly recommend using a well-vetted OAuth 2.0 client library for the chosen programming language, as they handle many complexities and security considerations.

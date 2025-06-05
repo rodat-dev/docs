@@ -1,0 +1,82 @@
+---
+title: "Getting Started with the Whoop API"
+description: "Quick overview on how to start using Whoop API"
+---
+**Purpose:** This document guides a Coding AI Agent on how to set up a developer account, create and manage applications, and understand client credentials within the WHOOP Developer Platform. It covers team creation, app registration, scope definition, redirect URIs, and managing app credentials.
+
+## 1. Core Concepts & Prerequisites
+
+To interact with the WHOOP API, you must first register your application and obtain credentials. The WHOOP Developer Dashboard is the central place for this.
+
+*   **WHOOP Account:** You must have an active WHOOP membership and account. Your WHOOP account credentials are used to log into the Developer Dashboard.
+*   **Developer Dashboard:** This web interface (https://developer-dashboard.whoop.com/) is used to manage your apps, client secrets, and team members.
+*   **Client ID:** A unique identifier for your application.
+*   **Client Secret:** A secret value associated with your Client ID, used for authentication. **Never expose this on the client-side.**
+*   **Scopes:** Permissions your app requests to access specific types of user data (e.g., `read:profile`, `offline`).
+*   **Redirect URIs:** URLs where WHOOP will redirect the user after they authorize your application during the OAuth flow. These must be registered in the Developer Dashboard.
+
+## 2. Implementation Steps
+
+### 2.1. Sign Up for WHOOP
+
+1.  Ensure you have a WHOOP membership. If not, sign up at [join.whoop.com](https://join.whoop.com/?utm_source=whoop&utm_medium=developer).
+
+### 2.2. Create Your Team (if prompted)
+
+1.  Navigate to the [Developer Dashboard](https://developer-dashboard.whoop.com/).
+2.  If you haven't created a team before, you will be prompted to "Get Started" with team creation.
+3.  Choose a name for your team and click "Create Team".
+
+### 2.3. Create Your First App
+
+1.  Go to the [App creation flow](https://developer-dashboard.whoop.com/apps/create) in the Developer Dashboard.
+2.  **Define Scopes:** Select the data access permissions your app requires. At least one scope must be specified. Limit scopes to only what your application will use. Refer to the [API Docs](https://developer.whoop.com/api#section/Authentication) for available scopes.
+3.  **Specify Redirect URIs:** Enter at least one valid HTTPS or custom scheme URL (e.g., `https://your-app.com/callback` or `your-app://callback`). The URI used in your OAuth authorization request must exactly match one of the registered URIs.
+4.  **Complete Client Creation:** Fill in all required fields (App Name, Contact Email(s), Privacy Policy URL) and click the "Create" button.
+
+### 2.4. Access Client Credentials
+
+1.  After creating your App, your `Client ID` and `Client Secret` will be displayed. **Immediately save your `Client Secret` in a secure location**, as it will only be shown once.
+2.  You can view your `Client ID` and manage your app details later by navigating to the [Apps section](https://developer-dashboard.whoop.com/) in the Developer Dashboard and clicking on your app.
+
+### 2.5. Edit or Delete an App
+
+1.  Navigate to the [Apps section](https://developer-dashboard.whoop.com/) in the Developer Dashboard.
+2.  Click the pencil icon next to the app you wish to edit. Make your changes and click "Save".
+3.  To delete an app, click the red trash can button. **Caution: This action cannot be undone.**
+
+### 2.6. Add Users to a Team
+
+1.  Go to the [Team section](https://developer-dashboard.whoop.com/team) of the Developer Dashboard.
+2.  Click the "Invite" button in the top right corner.
+3.  Enter the email address associated with the WHOOP account of the developer you wish to invite.
+4.  Click "Invite".
+
+## 3. Code Example(s)
+
+This section does not contain direct code examples for app creation as it's a manual process within the Developer Dashboard. However, the `Client ID` and `Client Secret` obtained here are crucial for all subsequent API interactions.
+
+**Example: Environment Variable Setup (Conceptual for AI)**
+```bash
+# Example of how a Coding AI Agent might store credentials securely
+# These values are obtained from the WHOOP Developer Dashboard
+export WHOOP_CLIENT_ID="YOUR_WHOOP_CLIENT_ID"
+export WHOOP_CLIENT_SECRET="YOUR_WHOOP_CLIENT_SECRET"
+export WHOOP_REDIRECT_URI="https://your-app.com/callback"
+export WHOOP_API_HOSTNAME="https://api.prod.whoop.com"
+```
+*Accompanying Explanation:* The `Client ID`, `Client Secret`, and `Redirect URI` are fundamental for your application to authenticate with WHOOP. A Coding AI Agent should store these securely, typically as environment variables, and never hardcode them directly into client-side code. The `WHOOP_API_HOSTNAME` is the base URL for API interactions.
+
+## 4. Key API Endpoints / Functions Used
+
+*   **WHOOP Developer Dashboard (Web UI):**
+    *   `https://developer-dashboard.whoop.com/apps/create`: For creating new applications.
+    *   `https://developer-dashboard.whoop.com/`: For managing existing applications and viewing credentials.
+    *   `https://developer-dashboard.whoop.com/team`: For managing team members.
+
+## 5. Important Notes & Best Practices for AI Implementation
+
+*   **Security of Client Secret:** Emphasize that the `Client Secret` is highly sensitive and must *never* be exposed in client-side code (web or mobile applications). It should only be used server-side.
+*   **Scope Minimization:** Advise the AI to request only the minimum necessary scopes for the application's functionality to respect user privacy.
+*   **Redirect URI Matching:** Stress the importance of the redirect URI in the OAuth request precisely matching a registered URI in the dashboard to prevent authentication failures.
+*   **App Limits:** Note the default limit of 5 apps and the process to request more.

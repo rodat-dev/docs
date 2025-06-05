@@ -1,0 +1,124 @@
+---
+title: 'Retrieving User Cycle Data with WHOOP'
+description: 'How to retrieve user cycle data'
+---
+**Purpose:** This document guides a Coding AI Agent on how to fetch a user's physiological cycle data from the WHOOP API. It explains the concept of a "Cycle" and provides the data model and an example for retrieving the latest cycle.
+
+## 1. Core Concepts & Prerequisites
+
+WHOOP organizes a user's physiological data within "Cycles," which represent a biological rhythm of sleep and wakefulness, often not aligning with calendar days. A "Cycle" has a `start` time and an `end` time (unless it's the current, ongoing cycle).
+
+*   **Prerequisite:** Ensure `oauth2_authentication_guide.md` is completed. You must have a valid `access token` for the user.
+*   **Required Scope:** `read:cycles` is necessary to access cycle data.
+*   **Cycle Data Model:** Understanding the structure of the `Cycle` object is crucial for processing the retrieved data.
+
+## 2. Implementation Steps
+
+1.  **Obtain Access Token:** Ensure you have a valid `access token` for the WHOOP user.
+2.  **Construct API Request:** Make a GET request to the Cycle Collection API endpoint.
+    *   To get the *latest* cycle, use the `limit=1` query parameter, as the collection is sorted by time in descending order.
+    *   Include the `access token` in the `Authorization: Bearer` header.
+3.  **Process Response:** Parse the JSON response. The `records` field will contain an array of `Cycle` objects. Check if the array is not empty before accessing data.
+
+## 3. Code Example(s)
+
+**Example: Getting the User's Current Cycle (JavaScript Fetch API)**
+```javascript
+// Ensure process.env.WHOOP_API_HOSTNAME is set (e.g., 'https://api.prod.whoop.com')
+
+async function getCurrentCycle(accessToken) {
+    const query = new URLSearchParams({
+        limit: "1", // Request only the latest cycle
+    });
+
+    const uri = `${process.env.WHOOP_API_HOSTNAME}/developer/v1/cycle?${query.toString()}`;
+
+    try {
+        const cycleResponse = await fetch(uri, {
+            headers: {
+                Authorization: `Bearer ${accessToken}`,
+            },
+        });
+
+        if (cycleResponse.status === 200) {
+            const data = await cycleResponse.json();
+            if (data.records && data.records.length > 0) {
+                const latestCycle = data.records[0];
+                console.log("Successfully retrieved latest cycle:", latestCycle);
+                return latestCycle;
+            } else {
+                console.log("No cycles found for the user.");
+                return null;
+            }
+        } else if (cycleResponse.status === 401) {
+            console.error("Unauthorized: Access token might be expired or invalid. Trigger refresh.");
+            throw new Error("Unauthorized");
+        } else {
+            const errorData = await cycleResponse.json();
+            throw new Error(`Received ${cycleResponse.status} status from Whoop: ${JSON.stringify(errorData)}`);
+        }
+    } catch (error) {
+        console.error("Error fetching current cycle:", error);
+        throw error;
+    }
+}
+
+// Example usage:
+// const USER_ACCESS_TOKEN = "YOUR_USER_ACCESS_TOKEN";
+// getCurrentCycle(USER_ACCESS_TOKEN)
+//     .then(cycle => {
+//         if (cycle) {
+//             console.log("Latest Cycle ID:", cycle.id);
+//             console.log("Cycle Start Time:", cycle.start);
+//             console.log("Cycle Score State:", cycle.score_state);
+//             // If score_state is 'SCORED', access cycle.score
+//             if (cycle.score_state === 'SCORED' && cycle.score) {
+//                 console.log("Cycle Strain:", cycle.score.strain);
+//             }
+//         }
+//     })
+//     .catch(err => {
+//         console.error("Failed to get cycle data:", err);
+//     });
+```
+*Accompanying Explanation:* This JavaScript function `getCurrentCycle` demonstrates how to fetch the latest physiological cycle. It constructs the API URL with a `limit=1` query parameter and includes the access token in the `Authorization` header. It handles successful responses, empty results, and potential `401` unauthorized errors, prompting the AI to consider token refresh.
+
+## 3.1. Cycle Data Model
+
+```json
+{
+  "id": 93845,
+  "user_id": 10129,
+  "created_at": "2022-04-24T11:25:44.774Z",
+  "updated_at": "2022-04-24T14:25:44.774Z",
+  "start": "2022-04-24T02:25:44.774Z",
+  "end": "2022-04-24T10:25:44.774Z",
+  "timezone_offset": "-05:00",
+  "score_state": "SCORED",
+  "score": {
+    "strain": 5.2951527,
+    "kilojoule": 8288.297,
+    "average_heart_rate": 68,
+    "max_heart_rate": 141
+  }
+}
+```
+*Accompanying Explanation:*
+*   `id`: Unique identifier for the physiological cycle.
+*   `user_id`: The WHOOP User for the cycle.
+*   `start`, `end`: Time bounds of the cycle. `end` is absent for the current, ongoing cycle.
+*   `timezone_offset`: User's timezone offset.
+*   `score_state`: Indicates if the cycle was `SCORED`, `PENDING_SCORE`, or `UNSCORABLE`. `score` object is only present if `SCORED`.
+*   `score`: Contains measurements like `strain`, `kilojoule`, `average_heart_rate`, `max_heart_rate`.
+
+## 4. Key API Endpoints / Functions Used
+
+*   `GET https://api.prod.whoop.com/developer/v1/cycle`: Used to retrieve a collection of physiological cycles.
+    *   Query Parameters: `limit`, `start`, `end`, `nextToken` (for pagination).
+
+## 5. Important Notes & Best Practices for AI Implementation
+
+*   **Current Cycle:** The current cycle will not have an `end` time.
+*   **`score_state` Importance:** Always check the `score_state` field before attempting to access the `score` object. If `score_state` is `PENDING_SCORE`, the AI should consider re-fetching later. If `UNSCORABLE`, no score data will be available.
+*   **Pagination:** For retrieving historical cycle data, the AI should be aware of pagination. Refer to `api_pagination_guide.md` for details on using `nextToken`.
+*   **Error Handling:** Implement robust error handling, especially for `401 Unauthorized` responses, which indicate an expired access token.

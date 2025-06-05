@@ -1,0 +1,128 @@
+---
+title: 'Refreshing Access Tokens with WHOOP'
+description: 'How to refresh access tokens'
+---
+**Purpose:** This document guides a Coding AI Agent on how to refresh an expired WHOOP access token using a refresh token. This is crucial for maintaining continuous access to user data without requiring the user to re-authenticate.
+
+## 1. Core Concepts & Prerequisites
+
+Access tokens issued by WHOOP are short-lived. To continue accessing user data after an access token expires, your application must use a refresh token to obtain a new access token.
+
+*   **Prerequisite:** Ensure `oauth2_authentication_guide.md` is completed. You must have successfully completed the initial OAuth 2.0 flow and received both an `access token` and a `refresh token`.
+    *   **Important:** Receiving a refresh token requires including the `offline` scope in your initial authorization request.
+*   **Refresh Token:** A long-lived credential obtained during the initial OAuth flow, used to request new access tokens.
+*   **Token URL:** The same endpoint used for initial token exchange (`https://api.prod.whoop.com/oauth/oauth2/token`).
+*   **`expires_in`:** A parameter in the token response indicating the access token's validity duration in seconds.
+
+## 2. Implementation Steps
+
+1.  **Detect Expiration:** Monitor the `expires_in` value of your access token. When it's nearing expiration or an API call returns a `401 - Unauthorized` error, initiate the refresh process.
+2.  **Prepare Refresh Request:** Construct a POST request to the WHOOP Token URL (`https://api.prod.whoop.com/oauth/oauth2/token`).
+    *   The request body must be `application/x-www-form-urlencoded`.
+    *   Include `grant_type: 'refresh_token'`, your `client_id`, `client_secret`, the `refresh_token`, and the `scope: 'offline'`.
+3.  **Send Request:** Send the POST request to the Token URL.
+4.  **Process Response:**
+    *   Upon success, WHOOP will return a new `access_token`, a new `refresh_token`, and a new `expires_in` value.
+    *   **Crucially, the *old* access token and refresh token are invalidated.** Your application must update its stored tokens with the new ones.
+    *   If the refresh fails (e.g., invalid refresh token), handle the error appropriately.
+
+## 3. Code Example(s)
+
+This example demonstrates refreshing an access token using JavaScript's Fetch API and also shows the Postman configuration.
+
+**Example: Refreshing Token with JavaScript (Fetch API)**
+```javascript
+// Ensure these environment variables are set:
+// process.env.WHOOP_API_HOSTNAME (e.g., 'https://api.prod.whoop.com')
+// process.env.CLIENT_ID
+// process.env.CLIENT_SECRET
+
+async function getFreshTokens(currentRefreshToken) {
+    const refreshParams = {
+        grant_type: 'refresh_token',
+        client_id: process.env.CLIENT_ID,
+        client_secret: process.env.CLIENT_SECRET,
+        scope: 'offline', // Must include 'offline' scope to get a new refresh token
+        refresh_token: currentRefreshToken,
+    };
+
+    const body = new URLSearchParams(refreshParams); // For application/x-www-form-urlencoded
+    const headers = {
+        'Content-Type': 'application/x-www-form-urlencoded',
+    };
+
+    try {
+        const refreshTokenResponse = await fetch(
+            `${process.env.WHOOP_API_HOSTNAME}/oauth/oauth2/token`,
+            {
+                body,
+                headers,
+                method: 'POST',
+            },
+        );
+
+        if (!refreshTokenResponse.ok) {
+            const errorData = await refreshTokenResponse.json();
+            throw new Error(`Failed to refresh token: ${refreshTokenResponse.status} - ${JSON.stringify(errorData)}`);
+        }
+
+        const authResult = await refreshTokenResponse.json();
+        // Expected AuthResult interface:
+        // interface AuthResult {
+        //     access_token: string;
+        //     refresh_token: string;
+        //     expires_in: number; // in seconds
+        //     scope: string;
+        //     token_type: 'bearer';
+        // }
+
+        console.log("Tokens refreshed successfully!");
+        console.log("New Access Token:", authResult.access_token);
+        console.log("New Refresh Token:", authResult.refresh_token);
+        console.log("Expires In (seconds):", authResult.expires_in);
+
+        // IMPORTANT: Update your stored tokens with these new values
+        // e.g., updateDatabaseUserTokens(userId, authResult.access_token, authResult.refresh_token, Date.now() + authResult.expires_in * 1000);
+
+        return authResult;
+
+    } catch (error) {
+        console.error("Error during token refresh:", error);
+        throw error;
+    }
+}
+
+// Example usage (assuming you have a stored refresh token)
+// const USER_STORED_REFRESH_TOKEN = "YOUR_STORED_REFRESH_TOKEN";
+// getFreshTokens(USER_STORED_REFRESH_TOKEN)
+//     .then(newTokens => {
+//         // Use newTokens.access_token for subsequent API calls
+//     })
+//     .catch(err => {
+//         // Handle refresh failure, potentially re-authenticate user
+//     });
+```
+*Accompanying Explanation:* This JavaScript function `getFreshTokens` takes the current refresh token as input. It constructs a `POST` request with the necessary `grant_type`, client credentials, and the `offline` scope. Upon a successful response, it logs the new tokens and emphasizes the critical step of updating the stored tokens in your database.
+
+**Example: Refreshing Token with Postman**
+*   **HTTP Request Type/Verb**: `POST`
+*   **URL**: `https://api.prod.whoop.com/oauth/oauth2/token`
+*   **Body**: Select `x-www-form-urlencoded`
+    *   `grant_type`: `refresh_token`
+    *   `refresh_token`: `{{RefreshToken}}` (Use your stored refresh token, or a Postman variable)
+    *   `client_id`: `{{ClientID}}` (Use your Client ID, or a Postman variable)
+    *   `client_secret`: `{{ClientSecret}}` (Use your Client Secret, or a Postman variable)
+    *   `scope`: `offline`
+
+*Accompanying Explanation:* This describes how to configure Postman to manually test the token refresh process. It uses placeholders `{{...}}` which Postman resolves from its environment variables.
+
+## 4. Key API Endpoints / Functions Used
+
+*   `https://api.prod.whoop.com/oauth/oauth2/token`: The primary endpoint for exchanging authorization codes and refreshing tokens.
+
+## 5. Important Notes & Best Practices for AI Implementation
+
+*   **Invalidation of Old Tokens:** Crucially, when a refresh token is used, the *previous* access token and refresh token become invalid. The AI must ensure it updates its stored tokens with the *new* ones received in the refresh response.
+*   **Concurrent Refresh Requests:** If multiple concurrent requests attempt to refresh an expired token, only the first one will succeed. Subsequent requests will fail because the refresh token has already been invalidated. Implement a mechanism (e.g., a mutex, a queue, or a background cron job) to prevent simultaneous refresh attempts for the same user.
+*   **Proactive Refreshing:** Instead of waiting for an access token to expire and an API call to fail, consider refreshing tokens proactively in a background job (e.g., hourly) to ensure tokens are always fresh.
+*   **Error Handling:** Always handle `401 - Unauthorized` responses from API calls, which indicate an expired or invalid access token, and trigger the refresh flow. If refresh fails, the user may need to re-authenticate.
